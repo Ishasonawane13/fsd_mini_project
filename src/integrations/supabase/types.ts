@@ -14,7 +14,161 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_type: string
+          hackathon_id: string
+          id: string
+          reminder_12h: boolean | null
+          reminder_1day: boolean | null
+          reminder_3h: boolean | null
+          round_id: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_type: string
+          hackathon_id: string
+          id?: string
+          reminder_12h?: boolean | null
+          reminder_1day?: boolean | null
+          reminder_3h?: boolean | null
+          round_id?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_type?: string
+          hackathon_id?: string
+          id?: string
+          reminder_12h?: boolean | null
+          reminder_1day?: boolean | null
+          reminder_3h?: boolean | null
+          round_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            isOneToOne: false
+            referencedRelation: "hackathons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "hackathon_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hackathon_rounds: {
+        Row: {
+          created_at: string
+          deadline: string
+          description: string | null
+          hackathon_id: string
+          id: string
+          round_order: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          deadline: string
+          description?: string | null
+          hackathon_id: string
+          id?: string
+          round_order?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          deadline?: string
+          description?: string | null
+          hackathon_id?: string
+          id?: string
+          round_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hackathon_rounds_hackathon_id_fkey"
+            columns: ["hackathon_id"]
+            isOneToOne: false
+            referencedRelation: "hackathons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hackathons: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string
+          id: string
+          location: string | null
+          organizer: string
+          prize_pool: string | null
+          registration_deadline: string
+          registration_start: string | null
+          start_date: string
+          status: string
+          tags: string[] | null
+          team_size_max: number | null
+          team_size_min: number | null
+          title: string
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date: string
+          id?: string
+          location?: string | null
+          organizer: string
+          prize_pool?: string | null
+          registration_deadline: string
+          registration_start?: string | null
+          start_date: string
+          status?: string
+          tags?: string[] | null
+          team_size_max?: number | null
+          team_size_min?: number | null
+          title: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          location?: string | null
+          organizer?: string
+          prize_pool?: string | null
+          registration_deadline?: string
+          registration_start?: string | null
+          start_date?: string
+          status?: string
+          tags?: string[] | null
+          team_size_max?: number | null
+          team_size_min?: number | null
+          title?: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
