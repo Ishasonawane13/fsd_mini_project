@@ -39,6 +39,7 @@ export const Dashboard = () => {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
   const [calendarRefresh, setCalendarRefresh] = useState(0);
+  const [hackathonsInCalendar, setHackathonsInCalendar] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     status: 'all',
@@ -111,85 +112,124 @@ export const Dashboard = () => {
     }
   };
 
+  const fetchHackathonsInCalendar = async () => {
+    try {
+      const { data: calendarEvents } = await supabase
+        .from('calendar_events')
+        .select('hackathon_id');
+
+      if (calendarEvents) {
+        const hackathonIds = new Set(calendarEvents.map(event => event.hackathon_id));
+        setHackathonsInCalendar(hackathonIds);
+      }
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+    }
+  };
+
   useEffect(() => {
     fetchHackathons();
+    fetchHackathonsInCalendar();
   }, [filters]);
 
-  const handleAddToCalendar = async (hackathon: Hackathon) => {
-    try {
-      // Check if events already exist for this hackathon
-      const { data: existingEvents } = await supabase
-        .from('calendar_events')
-        .select('id')
-        .eq('hackathon_id', hackathon.id)
-        .limit(1);
+  useEffect(() => {
+    fetchHackathonsInCalendar();
+  }, [calendarRefresh]);
 
-      if (existingEvents && existingEvents.length > 0) {
+  const handleToggleCalendar = async (hackathon: Hackathon) => {
+    const isInCalendar = hackathonsInCalendar.has(hackathon.id);
+    
+    if (isInCalendar) {
+      // Remove from calendar
+      try {
+        const { error } = await supabase
+          .from('calendar_events')
+          .delete()
+          .eq('hackathon_id', hackathon.id);
+
+        if (error) throw error;
+
         toast({
-          title: "Already Added",
-          description: `${hackathon.title} events are already in your calendar.`,
+          title: "Removed from Calendar",
+          description: `${hackathon.title} has been removed from your calendar.`,
         });
-        return;
-      }
 
-      // Add main hackathon events
-      const { error: mainEventsError } = await supabase.from('calendar_events').insert([
-        {
-          hackathon_id: hackathon.id,
-          event_type: 'registration_deadline',
-          title: `${hackathon.title} - Registration Deadline`,
-          description: 'Last day to register for this hackathon',
-          event_date: hackathon.registration_deadline,
-        },
-        {
-          hackathon_id: hackathon.id,
-          event_type: 'hackathon_event',
-          title: `${hackathon.title} - Starts`,
-          description: 'Hackathon begins',
-          event_date: hackathon.start_date,
-        },
-        {
-          hackathon_id: hackathon.id,
-          event_type: 'hackathon_event',
-          title: `${hackathon.title} - Ends`,
-          description: 'Hackathon ends',
-          event_date: hackathon.end_date,
+        setCalendarRefresh(prev => prev + 1);
+      } catch (error) {
+        console.error('Error removing from calendar:', error);
+        toast({
+          title: "Error",
+          description: "Failed to remove hackathon from calendar.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Add to calendar
+      try {
+        // Add main hackathon events
+        const { error: mainEventsError } = await supabase.from('calendar_events').insert([
+          {
+            hackathon_id: hackathon.id,
+            event_type: 'registration_deadline',
+            title: `${hackathon.title} - Registration Deadline`,
+            description: 'Last day to register for this hackathon',
+            event_date: hackathon.registration_deadline,
+          },
+          {
+            hackathon_id: hackathon.id,
+            event_type: 'hackathon_event',
+            title: `${hackathon.title} - Starts`,
+            description: 'Hackathon begins',
+            event_date: hackathon.start_date,
+          },
+          {
+            hackathon_id: hackathon.id,
+            event_type: 'hackathon_event',
+            title: `${hackathon.title} - Ends`,
+            description: 'Hackathon ends',
+            event_date: hackathon.end_date,
+          }
+        ]);
+
+        if (mainEventsError) throw mainEventsError;
+
+        // Also add any rounds
+        const { data: rounds, error: roundsError } = await supabase
+          .from('hackathon_rounds')
+          .select('*')
+          .eq('hackathon_id', hackathon.id)
+          .order('round_order');
+
+        if (roundsError) throw roundsError;
+
+        if (rounds && rounds.length > 0) {
+          const roundEvents = rounds.map(round => ({
+            hackathon_id: hackathon.id,
+            event_type: 'hackathon_round',
+            round_id: round.id,
+            title: `${hackathon.title} - ${round.title}`,
+            description: round.description,
+            event_date: round.deadline,
+          }));
+
+          const { error: roundEventsError } = await supabase.from('calendar_events').insert(roundEvents);
+          if (roundEventsError) throw roundEventsError;
         }
-      ]);
 
-      if (mainEventsError) throw mainEventsError;
+        toast({
+          title: "Added to Calendar",
+          description: `${hackathon.title} has been added to your calendar.`,
+        });
 
-      // Also add any rounds
-      const { data: rounds, error: roundsError } = await supabase
-        .from('hackathon_rounds')
-        .select('*')
-        .eq('hackathon_id', hackathon.id)
-        .order('round_order');
-
-      if (roundsError) throw roundsError;
-
-      if (rounds && rounds.length > 0) {
-        const roundEvents = rounds.map(round => ({
-          hackathon_id: hackathon.id,
-          event_type: 'hackathon_round',
-          round_id: round.id,
-          title: `${hackathon.title} - ${round.title}`,
-          description: round.description,
-          event_date: round.deadline,
-        }));
-
-        const { error: roundEventsError } = await supabase.from('calendar_events').insert(roundEvents);
-        if (roundEventsError) throw roundEventsError;
+        setCalendarRefresh(prev => prev + 1);
+      } catch (error) {
+        console.error('Error adding to calendar:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add hackathon to calendar.",
+          variant: "destructive",
+        });
       }
-
-      setCalendarRefresh(prev => prev + 1);
-    } catch (error) {
-      console.error('Error adding to calendar:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add hackathon to calendar.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -225,7 +265,8 @@ export const Dashboard = () => {
                   <HackathonCard
                     key={hackathon.id}
                     hackathon={hackathon}
-                    onAddToCalendar={handleAddToCalendar}
+                    onToggleCalendar={handleToggleCalendar}
+                    isInCalendar={hackathonsInCalendar.has(hackathon.id)}
                   />
                 ))}
               </div>

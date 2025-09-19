@@ -25,10 +25,11 @@ interface Hackathon {
 
 interface HackathonCardProps {
   hackathon: Hackathon;
-  onAddToCalendar: (hackathon: Hackathon) => void;
+  onToggleCalendar: (hackathon: Hackathon) => void;
+  isInCalendar: boolean;
 }
 
-export const HackathonCard = ({ hackathon, onAddToCalendar }: HackathonCardProps) => {
+export const HackathonCard = ({ hackathon, onToggleCalendar, isInCalendar }: HackathonCardProps) => {
   const { toast } = useToast();
 
   const getStatusColor = (status: string) => {
@@ -40,12 +41,8 @@ export const HackathonCard = ({ hackathon, onAddToCalendar }: HackathonCardProps
     }
   };
 
-  const handleAddToCalendar = () => {
-    onAddToCalendar(hackathon);
-    toast({
-      title: "Added to Calendar",
-      description: `${hackathon.title} has been added to your calendar.`,
-    });
+  const handleToggleCalendar = () => {
+    onToggleCalendar(hackathon);
   };
 
   return (
@@ -111,12 +108,12 @@ export const HackathonCard = ({ hackathon, onAddToCalendar }: HackathonCardProps
 
       <CardFooter className="flex gap-2">
         <Button 
-          variant="outline" 
+          variant={isInCalendar ? "destructive" : "outline"} 
           size="sm" 
-          onClick={handleAddToCalendar}
+          onClick={handleToggleCalendar}
           className="flex-1"
         >
-          Add to Calendar
+          {isInCalendar ? "Remove from Calendar" : "Add to Calendar"}
         </Button>
         {hackathon.website_url && (
           <Button 
