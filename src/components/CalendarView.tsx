@@ -56,18 +56,43 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
 
       if (error) throw error;
 
-      const formattedEvents: CalendarEvent[] = calendarEvents?.map(event => ({
-        id: event.id,
-        title: event.title,
-        start: new Date(event.event_date),
-        end: new Date(new Date(event.event_date).getTime() + 60 * 60 * 1000), // 1 hour duration
-        resource: {
-          hackathon_id: event.hackathon_id,
-          event_type: event.event_type,
-          description: event.description,
-          hackathon: event.hackathons
+      const formattedEvents: CalendarEvent[] = calendarEvents?.map(event => {
+        const eventDate = new Date(event.event_date);
+        const timeString = eventDate.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        
+        // Get event type display name
+        let typeDisplay = '';
+        switch (event.event_type) {
+          case 'registration_deadline':
+            typeDisplay = 'Registration';
+            break;
+          case 'hackathon_event':
+            typeDisplay = event.title.includes('Starts') ? 'Event Start' : 'Event End';
+            break;
+          case 'hackathon_round':
+            typeDisplay = 'Round';
+            break;
+          default:
+            typeDisplay = event.event_type.replace('_', ' ');
         }
-      })) || [];
+
+        return {
+          id: event.id,
+          title: `${event.title.split(' - ')[0]}\n${typeDisplay} - ${timeString}`,
+          start: eventDate,
+          end: new Date(eventDate.getTime() + 60 * 60 * 1000), // 1 hour duration
+          resource: {
+            hackathon_id: event.hackathon_id,
+            event_type: event.event_type,
+            description: event.description,
+            hackathon: event.hackathons
+          }
+        };
+      }) || [];
 
       setEvents(formattedEvents);
     } catch (error) {
@@ -186,6 +211,17 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
         .rbc-toolbar button.rbc-active {
           background: hsl(var(--primary));
           color: hsl(var(--primary-foreground));
+        }
+        .rbc-event {
+          white-space: pre-line !important;
+          font-size: 12px !important;
+          line-height: 1.2 !important;
+          padding: 2px 4px !important;
+        }
+        .rbc-event-content {
+          white-space: pre-line !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
         }
       `}</style>
       
