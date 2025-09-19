@@ -117,8 +117,23 @@ export const Dashboard = () => {
 
   const handleAddToCalendar = async (hackathon: Hackathon) => {
     try {
-      // Add registration deadline event
-      await supabase.from('calendar_events').insert([
+      // Check if events already exist for this hackathon
+      const { data: existingEvents } = await supabase
+        .from('calendar_events')
+        .select('id')
+        .eq('hackathon_id', hackathon.id)
+        .limit(1);
+
+      if (existingEvents && existingEvents.length > 0) {
+        toast({
+          title: "Already Added",
+          description: `${hackathon.title} events are already in your calendar.`,
+        });
+        return;
+      }
+
+      // Add main hackathon events
+      const { error: mainEventsError } = await supabase.from('calendar_events').insert([
         {
           hackathon_id: hackathon.id,
           event_type: 'registration_deadline',
@@ -142,12 +157,16 @@ export const Dashboard = () => {
         }
       ]);
 
+      if (mainEventsError) throw mainEventsError;
+
       // Also add any rounds
-      const { data: rounds } = await supabase
+      const { data: rounds, error: roundsError } = await supabase
         .from('hackathon_rounds')
         .select('*')
         .eq('hackathon_id', hackathon.id)
         .order('round_order');
+
+      if (roundsError) throw roundsError;
 
       if (rounds && rounds.length > 0) {
         const roundEvents = rounds.map(round => ({
@@ -159,7 +178,8 @@ export const Dashboard = () => {
           event_date: round.deadline,
         }));
 
-        await supabase.from('calendar_events').insert(roundEvents);
+        const { error: roundEventsError } = await supabase.from('calendar_events').insert(roundEvents);
+        if (roundEventsError) throw roundEventsError;
       }
 
       setCalendarRefresh(prev => prev + 1);
