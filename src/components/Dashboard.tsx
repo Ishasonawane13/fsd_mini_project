@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { HackathonCard } from './HackathonCard';
 import { HackathonFilters } from './HackathonFilters';
 import { CalendarView } from './CalendarView';
@@ -233,15 +234,56 @@ export const Dashboard = () => {
     }
   };
 
+  const handleScrapeUnstop = async () => {
+    try {
+      setLoading(true);
+      toast({
+        title: "Scraping Started",
+        description: "Fetching latest hackathons from Unstop...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('scrape-unstop');
+      
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Success!",
+          description: `Scraped ${data.hackathons} hackathons from Unstop`,
+        });
+        // Refresh the hackathons list
+        await fetchHackathons();
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Error scraping Unstop:', error);
+      toast({
+        title: "Error",
+        description: "Failed to scrape hackathons from Unstop",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <NotificationSystem />
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">HackPlanner</h1>
-          <p className="text-xl text-muted-foreground">
-            Track hackathons and competitions with an advanced calendar system
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">HackPlanner</h1>
+              <p className="text-xl text-muted-foreground">
+                Track hackathons and competitions with an advanced calendar system
+              </p>
+            </div>
+            <Button onClick={handleScrapeUnstop} disabled={loading} variant="outline">
+              {loading ? "Scraping..." : "Refresh from Unstop"}
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="dashboard" className="w-full">
