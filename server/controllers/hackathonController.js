@@ -70,11 +70,9 @@ const getHackathon = asyncHandler(async (req, res) => {
 
     const hackathon = await findByIdWithPopulate(Hackathon, req.params.id, populate);
 
-    // Increment view count if user is not the creator
-    if (!req.user || req.user.id !== hackathon.createdBy._id.toString()) {
-        hackathon.views += 1;
-        await hackathon.save();
-    }
+    // Increment view count (no user authentication needed)
+    hackathon.views += 1;
+    await hackathon.save();
 
     sendSuccessResponse(res, { hackathon }, 'Hackathon retrieved successfully');
 });
@@ -83,20 +81,13 @@ const getHackathon = asyncHandler(async (req, res) => {
 // @route   POST /api/hackathons
 // @access  Private (organizer/admin)
 const createHackathon = asyncHandler(async (req, res) => {
-    // Add creator to hackathon data
+    // Create hackathon without user authentication
     const hackathonData = {
         ...req.body,
-        createdBy: req.user.id
+        createdBy: null  // No user authentication required
     };
 
     const hackathon = await Hackathon.create(hackathonData);
-
-    // Add to user's organized hackathons
-    req.user.hackathonsOrganized.push(hackathon._id);
-    await req.user.save();
-
-    // Populate creator info
-    await hackathon.populate('createdBy', 'username firstName lastName');
 
     sendSuccessResponse(res, { hackathon }, 'Hackathon created successfully', 201);
 });
@@ -107,19 +98,11 @@ const createHackathon = asyncHandler(async (req, res) => {
 const updateHackathon = asyncHandler(async (req, res) => {
     const hackathon = await findByIdWithPopulate(Hackathon, req.params.id);
 
-    // Check if user is creator or admin
-    if (hackathon.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
-        throw new ErrorHandler('Access denied. You can only update your own hackathons.', 403);
-    }
-
-    // Update hackathon
+    // Update hackathon (no authentication required)
     const updatedHackathon = await updateById(Hackathon, req.params.id, {
         ...req.body,
-        updatedBy: req.user.id,
         updatedAt: new Date()
     });
-
-    await updatedHackathon.populate('createdBy updatedBy', 'username firstName lastName');
 
     sendSuccessResponse(res, { hackathon: updatedHackathon }, 'Hackathon updated successfully');
 });
@@ -130,16 +113,7 @@ const updateHackathon = asyncHandler(async (req, res) => {
 const deleteHackathon = asyncHandler(async (req, res) => {
     const hackathon = await findByIdWithPopulate(Hackathon, req.params.id);
 
-    // Check if user is creator or admin
-    if (hackathon.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
-        throw new ErrorHandler('Access denied. You can only delete your own hackathons.', 403);
-    }
-
     await deleteById(Hackathon, req.params.id);
-
-    // Remove from user's organized hackathons
-    req.user.hackathonsOrganized.pull(req.params.id);
-    await req.user.save();
 
     sendSuccessResponse(res, null, 'Hackathon deleted successfully');
 });

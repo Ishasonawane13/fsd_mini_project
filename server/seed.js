@@ -11,7 +11,7 @@ async function createDummyUser() {
     const dummyUser = new User({
         username: 'admin',
         email: 'admin@hackathonhub.com',
-        password: 'admin123', // This will be hashed automatically
+        password: 'demo-password-change-in-production', // This will be hashed automatically
         firstName: 'Admin',
         lastName: 'User',
         role: 'admin'

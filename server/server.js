@@ -5,52 +5,40 @@ const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const connectDB = require('./config/database');
 
-// Load environment variables
 dotenv.config();
 
-// Create Express app
 const app = express();
 
-// Connect to MongoDB
 connectDB();
 
-// Security middleware
 app.use(helmet());
 
-// CORS configuration
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true
 }));
 
-// Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000, 
     message: {
         error: 'Too many requests from this IP, please try again later.'
     }
 });
 app.use('/api/', limiter);
 
-// Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
     next();
 });
 
-// API Routes - re-enabled for testing
-app.use('/api/auth', require('./routes/auth'));
 app.use('/api/hackathons', require('./routes/hackathons'));
 app.use('/api/teams', require('./routes/teams'));
 app.use('/api/submissions', require('./routes/submissions'));
 app.use('/api/users', require('./routes/users'));
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'success',
@@ -59,7 +47,6 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Handle 404 for unmatched API routes
 app.use('/api', (req, res) => {
     res.status(404).json({
         status: 'error',
@@ -67,11 +54,9 @@ app.use('/api', (req, res) => {
     });
 });
 
-// Global error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err);
 
-    // Mongoose validation error
     if (err.name === 'ValidationError') {
         const errors = Object.values(err.errors).map(e => e.message);
         return res.status(400).json({
@@ -81,7 +66,6 @@ app.use((err, req, res, next) => {
         });
     }
 
-    // Mongoose duplicate key error
     if (err.code === 11000) {
         const field = Object.keys(err.keyValue)[0];
         return res.status(400).json({
