@@ -9,6 +9,9 @@ dotenv.config();
 
 const app = express();
 
+// Trust proxy for rate limiting and forwarded headers
+app.set('trust proxy', 1);
+
 connectDB();
 
 app.use(helmet());
@@ -19,10 +22,11 @@ app.use(cors({
 }));
 
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
+    windowMs: 15 * 60 * 1000,
     message: {
         error: 'Too many requests from this IP, please try again later.'
-    }
+    },
+    trustProxy: true
 });
 app.use('/api/', limiter);
 
