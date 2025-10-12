@@ -3,7 +3,7 @@ import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
+import { hackathonsApi, type Hackathon } from '@/services/api';
 import { format, differenceInHours, differenceInDays } from 'date-fns';
 
 interface Notification {
@@ -12,7 +12,7 @@ interface Notification {
   description: string;
   event_date: string;
   hackathon_title: string;
-  type: '1day' | '12hour' | '3hour';
+  type: 'registration' | 'start' | 'end';
 }
 
 export const NotificationSystem = () => {
@@ -21,50 +21,64 @@ export const NotificationSystem = () => {
 
   const checkForNotifications = async () => {
     try {
-      const { data: events, error } = await supabase
-        .from('calendar_events')
-        .select(`
-          *,
-          hackathons!inner(title)
-        `);
-
-      if (error) throw error;
+      // Get upcoming hackathons from our MongoDB API
+      const response = await hackathonsApi.getAll({ status: 'upcoming' });
+      const hackathons = response?.data?.hackathons || [];
 
       const now = new Date();
       const newNotifications: Notification[] = [];
 
-      events?.forEach(event => {
-        const eventDate = new Date(event.event_date);
-        const hoursUntil = differenceInHours(eventDate, now);
-        const daysUntil = differenceInDays(eventDate, now);
+      hackathons.forEach(hackathon => {
+        const registrationDeadline = new Date(hackathon.registrationDeadline);
+        const startDate = new Date(hackathon.startDate);
+        const endDate = new Date(hackathon.endDate);
 
-        // Check for notifications
-        if (daysUntil === 1 && hoursUntil <= 24 && hoursUntil > 12 && event.reminder_1day) {
+        const hoursUntilRegistration = differenceInHours(registrationDeadline, now);
+        const hoursUntilStart = differenceInHours(startDate, now);
+        const hoursUntilEnd = differenceInHours(endDate, now);
+
+        const daysUntilRegistration = differenceInDays(registrationDeadline, now);
+        const daysUntilStart = differenceInDays(startDate, now);
+
+        // Registration deadline reminders
+        if (daysUntilRegistration === 1 && hoursUntilRegistration <= 24 && hoursUntilRegistration > 0) {
           newNotifications.push({
-            id: `${event.id}-1day`,
-            title: '1 Day Reminder',
-            description: `${event.title} is tomorrow`,
-            event_date: event.event_date,
-            hackathon_title: event.hackathons?.title || 'Unknown',
-            type: '1day'
+            id: `${hackathon._id}-registration`,
+            title: 'Registration Deadline Tomorrow',
+            description: `Registration for ${hackathon.title} closes tomorrow`,
+            event_date: hackathon.registrationDeadline,
+            hackathon_title: hackathon.title,
+            type: 'registration'
           });
-        } else if (hoursUntil === 12 && event.reminder_12h) {
+        } else if (hoursUntilRegistration <= 12 && hoursUntilRegistration > 0) {
           newNotifications.push({
-            id: `${event.id}-12hour`,
-            title: '12 Hour Reminder',
-            description: `${event.title} is in 12 hours`,
-            event_date: event.event_date,
-            hackathon_title: event.hackathons?.title || 'Unknown',
-            type: '12hour'
+            id: `${hackathon._id}-registration-12h`,
+            title: 'Registration Deadline Soon',
+            description: `Registration for ${hackathon.title} closes in ${hoursUntilRegistration} hours`,
+            event_date: hackathon.registrationDeadline,
+            hackathon_title: hackathon.title,
+            type: 'registration'
           });
-        } else if (hoursUntil === 3 && event.reminder_3h) {
+        }
+
+        // Start date reminders
+        if (daysUntilStart === 1 && hoursUntilStart <= 24 && hoursUntilStart > 0) {
           newNotifications.push({
-            id: `${event.id}-3hour`,
-            title: '3 Hour Reminder',
-            description: `${event.title} is in 3 hours`,
-            event_date: event.event_date,
-            hackathon_title: event.hackathons?.title || 'Unknown',
-            type: '3hour'
+            id: `${hackathon._id}-start`,
+            title: 'Hackathon Starts Tomorrow',
+            description: `${hackathon.title} starts tomorrow`,
+            event_date: hackathon.startDate,
+            hackathon_title: hackathon.title,
+            type: 'start'
+          });
+        } else if (hoursUntilStart <= 3 && hoursUntilStart > 0) {
+          newNotifications.push({
+            id: `${hackathon._id}-start-3h`,
+            title: 'Hackathon Starting Soon',
+            description: `${hackathon.title} starts in ${hoursUntilStart} hours`,
+            event_date: hackathon.startDate,
+            hackathon_title: hackathon.title,
+            type: 'start'
           });
         }
       });
@@ -91,9 +105,9 @@ export const NotificationSystem = () => {
 
   const getNotificationColor = (type: string) => {
     switch (type) {
-      case '1day': return 'bg-blue-100 text-blue-800';
-      case '12hour': return 'bg-yellow-100 text-yellow-800';
-      case '3hour': return 'bg-red-100 text-red-800';
+      case 'registration': return 'bg-blue-100 text-blue-800';
+      case 'start': return 'bg-green-100 text-green-800';
+      case 'end': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };

@@ -22,3 +22,49 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Environment variables and sensitive files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+server/.env
+server/*.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# API Keys and Secrets
+config/secrets.js
+config/keys.js
+secrets/
+private/
+
+# MongoDB dumps
+*.dump
+mongodump/
+
+# Server logs
+server/logs/
+server/*.log
+
+# Authentication tokens
+*.token
+auth_tokens/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+# Backup files
+*.backup
+*.bak
+
+# Temporary files
+temp/
+tmp/

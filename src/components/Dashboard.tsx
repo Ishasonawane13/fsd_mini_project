@@ -5,7 +5,8 @@ import { HackathonCard } from './HackathonCard';
 import { HackathonFilters } from './HackathonFilters';
 import { CalendarView } from './CalendarView';
 import { NotificationSystem } from './NotificationSystem';
-import { supabase } from '@/integrations/supabase/client';
+import { hackathonsApi, type Hackathon as ApiHackathon } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 interface Hackathon {
@@ -28,6 +29,29 @@ interface Hackathon {
   registration_start: string | null;
 }
 
+// Helper function to convert API response to component interface
+const convertApiHackathon = (apiHackathon: ApiHackathon): Hackathon => ({
+  id: apiHackathon._id,
+  title: apiHackathon.title,
+  description: apiHackathon.description,
+  organizer: apiHackathon.organizer,
+  location: typeof apiHackathon.location === 'object'
+    ? `${apiHackathon.location.venue || apiHackathon.location.type}`
+    : apiHackathon.location || 'TBD',
+  team_size_min: apiHackathon.teamSize.min,
+  team_size_max: apiHackathon.teamSize.max,
+  status: apiHackathon.status,
+  registration_deadline: apiHackathon.registrationDeadline,
+  start_date: apiHackathon.startDate,
+  end_date: apiHackathon.endDate,
+  website_url: apiHackathon.links?.website || null,
+  prize_pool: apiHackathon.prizes?.[0]?.amount ? `₹${apiHackathon.prizes[0].amount.toLocaleString()}` : null,
+  tags: apiHackathon.tags,
+  created_at: apiHackathon.createdAt,
+  updated_at: apiHackathon.updatedAt,
+  registration_start: null,
+});
+
 interface FilterState {
   search: string;
   status: string;
@@ -49,43 +73,32 @@ export const Dashboard = () => {
     sortBy: 'start_date'
   });
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
 
   const fetchHackathons = async () => {
     try {
       setLoading(true);
-      let query = supabase.from('hackathons').select('*');
 
-      // Apply filters
-      if (filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
+      // Prepare API parameters based on filters
+      const apiParams: any = {};
 
-      if (filters.search) {
-        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,organizer.ilike.%${filters.search}%`);
-      }
+      if (filters.search) apiParams.search = filters.search;
+      if (filters.status !== 'all') apiParams.status = filters.status;
+      if (filters.location !== 'all') apiParams.location = filters.location;
+      if (filters.sortBy) apiParams.sortBy = filters.sortBy;
 
-      // Apply sorting
-      const ascending = filters.sortBy !== 'created_at';
-      query = query.order(filters.sortBy, { ascending });
+      // Call our MongoDB backend
+      const response = await hackathonsApi.getAll(apiParams);
 
-      const { data, error } = await query;
+      // Convert API response to component format
+      const hackathons = response?.data?.hackathons || [];
+      const convertedHackathons = hackathons.map(convertApiHackathon);
 
-      if (error) throw error;
+      // Apply frontend filters that aren't handled by the API
+      let filteredHackathons = convertedHackathons;
 
-      let filteredData = data || [];
-
-      // Apply location filter
-      if (filters.location !== 'all') {
-        if (filters.location === 'online') {
-          filteredData = filteredData.filter(h => h.location?.toLowerCase().includes('online'));
-        } else {
-          filteredData = filteredData.filter(h => h.location && !h.location.toLowerCase().includes('online'));
-        }
-      }
-
-      // Apply team size filter
       if (filters.teamSize !== 'all') {
-        filteredData = filteredData.filter(h => {
+        filteredHackathons = filteredHackathons.filter(h => {
           const maxSize = h.team_size_max || h.team_size_min;
           switch (filters.teamSize) {
             case '1':
@@ -100,7 +113,7 @@ export const Dashboard = () => {
         });
       }
 
-      setHackathons(filteredData);
+      setHackathons(filteredHackathons);
     } catch (error) {
       console.error('Error fetching hackathons:', error);
       toast({
@@ -115,14 +128,9 @@ export const Dashboard = () => {
 
   const fetchHackathonsInCalendar = async () => {
     try {
-      const { data: calendarEvents } = await supabase
-        .from('calendar_events')
-        .select('hackathon_id');
-
-      if (calendarEvents) {
-        const hackathonIds = new Set(calendarEvents.map(event => event.hackathon_id));
-        setHackathonsInCalendar(hackathonIds);
-      }
+      // TODO: Implement calendar events with MongoDB backend
+      // For now, just set empty calendar
+      setHackathonsInCalendar(new Set());
     } catch (error) {
       console.error('Error fetching calendar events:', error);
     }
@@ -139,23 +147,21 @@ export const Dashboard = () => {
 
   const handleToggleCalendar = async (hackathon: Hackathon) => {
     const isInCalendar = hackathonsInCalendar.has(hackathon.id);
-    
+
     if (isInCalendar) {
       // Remove from calendar
       try {
-        const { error } = await supabase
-          .from('calendar_events')
-          .delete()
-          .eq('hackathon_id', hackathon.id);
-
-        if (error) throw error;
+        // TODO: Implement calendar removal with MongoDB backend
 
         toast({
           title: "Removed from Calendar",
           description: `${hackathon.title} has been removed from your calendar.`,
         });
 
-        setCalendarRefresh(prev => prev + 1);
+        // Update local state
+        const updatedCalendar = new Set(hackathonsInCalendar);
+        updatedCalendar.delete(hackathon.id);
+        setHackathonsInCalendar(updatedCalendar);
       } catch (error) {
         console.error('Error removing from calendar:', error);
         toast({
@@ -167,62 +173,17 @@ export const Dashboard = () => {
     } else {
       // Add to calendar
       try {
-        // Add main hackathon events
-        const { error: mainEventsError } = await supabase.from('calendar_events').insert([
-          {
-            hackathon_id: hackathon.id,
-            event_type: 'registration_deadline',
-            title: `${hackathon.title} - Registration Deadline`,
-            description: 'Last day to register for this hackathon',
-            event_date: hackathon.registration_deadline,
-          },
-          {
-            hackathon_id: hackathon.id,
-            event_type: 'hackathon_event',
-            title: `${hackathon.title} - Starts`,
-            description: 'Hackathon begins',
-            event_date: hackathon.start_date,
-          },
-          {
-            hackathon_id: hackathon.id,
-            event_type: 'hackathon_event',
-            title: `${hackathon.title} - Ends`,
-            description: 'Hackathon ends',
-            event_date: hackathon.end_date,
-          }
-        ]);
-
-        if (mainEventsError) throw mainEventsError;
-
-        // Also add any rounds
-        const { data: rounds, error: roundsError } = await supabase
-          .from('hackathon_rounds')
-          .select('*')
-          .eq('hackathon_id', hackathon.id)
-          .order('round_order');
-
-        if (roundsError) throw roundsError;
-
-        if (rounds && rounds.length > 0) {
-          const roundEvents = rounds.map(round => ({
-            hackathon_id: hackathon.id,
-            event_type: 'hackathon_round',
-            round_id: round.id,
-            title: `${hackathon.title} - ${round.title}`,
-            description: round.description,
-            event_date: round.deadline,
-          }));
-
-          const { error: roundEventsError } = await supabase.from('calendar_events').insert(roundEvents);
-          if (roundEventsError) throw roundEventsError;
-        }
+        // TODO: Implement calendar addition with MongoDB backend
 
         toast({
           title: "Added to Calendar",
           description: `${hackathon.title} has been added to your calendar.`,
         });
 
-        setCalendarRefresh(prev => prev + 1);
+        // Update local state
+        const updatedCalendar = new Set(hackathonsInCalendar);
+        updatedCalendar.add(hackathon.id);
+        setHackathonsInCalendar(updatedCalendar);
       } catch (error) {
         console.error('Error adding to calendar:', error);
         toast({
@@ -238,29 +199,24 @@ export const Dashboard = () => {
     try {
       setLoading(true);
       toast({
-        title: "Scraping Started",
-        description: "Fetching latest hackathons from Unstop...",
+        title: "Refreshing Data",
+        description: "Fetching latest hackathons from database...",
       });
 
-      const { data, error } = await supabase.functions.invoke('scrape-unstop');
-      
-      if (error) throw error;
+      // Fetch fresh data from our MongoDB backend
+      await fetchHackathons();
+      setCalendarRefresh(prev => prev + 1);
 
-      if (data.success) {
-        toast({
-          title: "Success!",
-          description: `Scraped ${data.hackathons} hackathons from Unstop`,
-        });
-        // Refresh the hackathons list
-        await fetchHackathons();
-      } else {
-        throw new Error(data.error);
-      }
+      toast({
+        title: "Success",
+        description: "Hackathons refreshed successfully!",
+      });
+
     } catch (error) {
-      console.error('Error scraping Unstop:', error);
+      console.error('Error refreshing hackathons:', error);
       toast({
         title: "Error",
-        description: "Failed to scrape hackathons from Unstop",
+        description: "Failed to refresh hackathons. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -294,7 +250,7 @@ export const Dashboard = () => {
 
           <TabsContent value="dashboard" className="space-y-6">
             <HackathonFilters filters={filters} onFiltersChange={setFilters} />
-            
+
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { supabase } from '@/integrations/supabase/client';
+import { hackathonsApi, type Hackathon } from '@/services/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,9 +19,9 @@ interface CalendarEvent {
   end: Date;
   resource: {
     hackathon_id: string;
-    event_type: string;
+    event_type: 'registration' | 'start' | 'end';
     description?: string;
-    hackathon?: any;
+    hackathon: Hackathon;
   };
 }
 
@@ -37,62 +37,57 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
 
   const fetchCalendarEvents = async () => {
     try {
-      const { data: calendarEvents, error } = await supabase
-        .from('calendar_events')
-        .select(`
-          *,
-          hackathons (
-            id,
-            title,
-            description,
-            organizer,
-            location,
-            prize_pool,
-            website_url,
-            tags
-          )
-        `)
-        .order('event_date', { ascending: true });
+      // Get all hackathons from our MongoDB API
+      const response = await hackathonsApi.getAll({});
+      const hackathons = response.data.hackathons;
 
-      if (error) throw error;
+      const formattedEvents: CalendarEvent[] = [];
 
-      const formattedEvents: CalendarEvent[] = calendarEvents?.map(event => {
-        const eventDate = new Date(event.event_date);
-        const timeString = eventDate.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit',
-          hour12: true 
-        });
-        
-        // Get event type display name
-        let typeDisplay = '';
-        switch (event.event_type) {
-          case 'registration_deadline':
-            typeDisplay = 'Registration';
-            break;
-          case 'hackathon_event':
-            typeDisplay = event.title.includes('Starts') ? 'Event Start' : 'Event End';
-            break;
-          case 'hackathon_round':
-            typeDisplay = 'Round';
-            break;
-          default:
-            typeDisplay = event.event_type.replace('_', ' ');
+      hackathons.forEach(hackathon => {
+        // Registration deadline event
+        if (hackathon.registrationDeadline) {
+          formattedEvents.push({
+            id: `${hackathon._id}-registration`,
+            title: `Registration Deadline: ${hackathon.title}`,
+            start: new Date(hackathon.registrationDeadline),
+            end: new Date(hackathon.registrationDeadline),
+            resource: {
+              hackathon_id: hackathon._id,
+              event_type: 'registration',
+              description: `Registration deadline for ${hackathon.title}`,
+              hackathon: hackathon
+            }
+          });
         }
 
-        return {
-          id: event.id,
-          title: `${event.title.split(' - ')[0]}\n${typeDisplay} - ${timeString}`,
-          start: eventDate,
-          end: new Date(eventDate.getTime() + 60 * 60 * 1000), // 1 hour duration
+        // Start date event
+        formattedEvents.push({
+          id: `${hackathon._id}-start`,
+          title: `${hackathon.title} Starts`,
+          start: new Date(hackathon.startDate),
+          end: new Date(hackathon.startDate),
           resource: {
-            hackathon_id: event.hackathon_id,
-            event_type: event.event_type,
-            description: event.description,
-            hackathon: event.hackathons
+            hackathon_id: hackathon._id,
+            event_type: 'start',
+            description: `${hackathon.title} begins`,
+            hackathon: hackathon
           }
-        };
-      }) || [];
+        });
+
+        // End date event
+        formattedEvents.push({
+          id: `${hackathon._id}-end`,
+          title: `${hackathon.title} Ends`,
+          start: new Date(hackathon.endDate),
+          end: new Date(hackathon.endDate),
+          resource: {
+            hackathon_id: hackathon._id,
+            event_type: 'end',
+            description: `${hackathon.title} concludes`,
+            hackathon: hackathon
+          }
+        });
+      });
 
       setEvents(formattedEvents);
     } catch (error) {
@@ -115,43 +110,26 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    try {
-      const { error } = await supabase
-        .from('calendar_events')
-        .delete()
-        .eq('id', eventId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Event Removed",
-        description: "Event has been removed from your calendar.",
-      });
-
-      setIsModalOpen(false);
-      fetchCalendarEvents();
-    } catch (error) {
-      console.error('Error deleting event:', error);
-      toast({
-        title: "Error",
-        description: "Failed to remove event from calendar.",
-        variant: "destructive",
-      });
-    }
+    // For now, just close the modal since we don't have a delete feature for hackathons
+    toast({
+      title: "Note",
+      description: "Calendar events are based on hackathon dates and cannot be deleted individually.",
+    });
+    setIsModalOpen(false);
   };
 
   const eventStyleGetter = (event: CalendarEvent) => {
     let backgroundColor = '#3174ad';
-    
+
     switch (event.resource.event_type) {
-      case 'registration_deadline':
+      case 'registration':
         backgroundColor = '#f59e0b';
         break;
-      case 'hackathon_round':
+      case 'start':
         backgroundColor = '#10b981';
         break;
-      case 'hackathon_event':
-        backgroundColor = '#6366f1';
+      case 'end':
+        backgroundColor = '#ef4444';
         break;
     }
 
@@ -224,7 +202,7 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
           text-overflow: ellipsis !important;
         }
       `}</style>
-      
+
       <Calendar
         localizer={localizer}
         events={events}
@@ -245,14 +223,14 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
               {selectedEvent?.title}
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedEvent && (
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-2">
                   {format(selectedEvent.start, 'PPP p')}
                 </p>
-                
+
                 {selectedEvent.resource.description && (
                   <p className="text-sm mb-3">{selectedEvent.resource.description}</p>
                 )}
@@ -268,13 +246,22 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center">
                       <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <span>{selectedEvent.resource.hackathon.location}</span>
+                      <span>
+                        {selectedEvent.resource.hackathon.location.type === 'online'
+                          ? 'Online'
+                          : selectedEvent.resource.hackathon.location.venue ||
+                          `${selectedEvent.resource.hackathon.location.address?.city}, ${selectedEvent.resource.hackathon.location.address?.country}`
+                        }
+                      </span>
                     </div>
-                    
-                    {selectedEvent.resource.hackathon.prize_pool && (
+
+                    {selectedEvent.resource.hackathon.prizes && selectedEvent.resource.hackathon.prizes.length > 0 && (
                       <div className="flex items-center">
                         <Trophy className="w-4 h-4 mr-2 text-muted-foreground" />
-                        <span>{selectedEvent.resource.hackathon.prize_pool}</span>
+                        <span>
+                          {selectedEvent.resource.hackathon.prizes[0].currency} {selectedEvent.resource.hackathon.prizes[0].amount.toLocaleString()}
+                          {selectedEvent.resource.hackathon.prizes.length > 1 && ' + more prizes'}
+                        </span>
                       </div>
                     )}
 
@@ -303,16 +290,16 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
                   <Trash2 className="w-4 h-4" />
                   Remove
                 </Button>
-                
-                {selectedEvent.resource.hackathon?.website_url && (
+
+                {selectedEvent.resource.hackathon?.links?.website && (
                   <Button
                     variant="outline"
                     size="sm"
                     asChild
                   >
-                    <a 
-                      href={selectedEvent.resource.hackathon.website_url} 
-                      target="_blank" 
+                    <a
+                      href={selectedEvent.resource.hackathon.links.website}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2"
                     >

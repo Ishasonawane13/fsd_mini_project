@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Users, Trophy, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Hackathon {
   id: string;
@@ -73,7 +72,7 @@ export const HackathonCard = ({ hackathon, onToggleCalendar, isInCalendar }: Hac
             <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
             <span>{format(new Date(hackathon.start_date), 'MMM dd')} - {format(new Date(hackathon.end_date), 'MMM dd, yyyy')}</span>
           </div>
-          
+
           <div className="flex items-center text-sm">
             <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
             <span>{hackathon.location || 'TBD'}</span>
@@ -107,18 +106,18 @@ export const HackathonCard = ({ hackathon, onToggleCalendar, isInCalendar }: Hac
       </CardContent>
 
       <CardFooter className="flex gap-2">
-        <Button 
-          variant={isInCalendar ? "destructive" : "outline"} 
-          size="sm" 
+        <Button
+          variant={isInCalendar ? "destructive" : "outline"}
+          size="sm"
           onClick={handleToggleCalendar}
           className="flex-1"
         >
           {isInCalendar ? "Remove from Calendar" : "Add to Calendar"}
         </Button>
         {hackathon.website_url && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             asChild
           >
             <a href={hackathon.website_url} target="_blank" rel="noopener noreferrer">
