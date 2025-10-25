@@ -22,6 +22,8 @@ const router = express.Router();
 router.get('/stats', getHackathonStats);
 router.get('/featured', getFeaturedHackathons);
 router.get('/upcoming', getUpcomingHackathons);
+router.get('/scraped', require('../controllers/scrapedController').getScrapedHackathons);
+router.get('/all-sources', require('../controllers/scrapedController').getAllHackathons);
 router.get('/search', searchHackathons);
 router.get('/:id', getHackathon);
 router.get('/', getHackathons);

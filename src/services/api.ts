@@ -190,6 +190,47 @@ export const hackathonsApi = {
         return apiRequest(endpoint);
     },
 
+    async getScraped(params?: {
+        search?: string;
+        status?: string;
+        location?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<{ status: string; message: string; data: { hackathons: any[]; pagination?: any } }> {
+        const queryParams = new URLSearchParams();
+
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== '') {
+                    queryParams.append(key, value.toString());
+                }
+            });
+        }
+
+        const endpoint = `/hackathons/scraped${queryParams.toString() ? `?${queryParams}` : ''}`;
+        return apiRequest(endpoint);
+    },
+
+    async getAllSources(params?: {
+        search?: string;
+        source?: 'database' | 'scraped';
+        page?: number;
+        limit?: number;
+    }): Promise<{ status: string; message: string; data: { hackathons: any[]; sources?: any } }> {
+        const queryParams = new URLSearchParams();
+
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== '') {
+                    queryParams.append(key, value.toString());
+                }
+            });
+        }
+
+        const endpoint = `/hackathons/all-sources${queryParams.toString() ? `?${queryParams}` : ''}`;
+        return apiRequest(endpoint);
+    },
+
     async getById(id: string): Promise<Hackathon> {
         return apiRequest(`/hackathons/${id}`);
     },

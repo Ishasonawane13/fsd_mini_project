@@ -75,7 +75,7 @@ export const Dashboard = () => {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
-  const fetchHackathons = async () => {
+  const fetchHackathons = async (source: 'all' | 'database' | 'scraped' = 'all') => {
     try {
       setLoading(true);
 
@@ -87,26 +87,38 @@ export const Dashboard = () => {
       if (filters.location !== 'all') apiParams.location = filters.location;
       if (filters.sortBy) apiParams.sortBy = filters.sortBy;
 
-      // Call our MongoDB backend
-      const response = await hackathonsApi.getAll(apiParams);
+      let response: any;
+      let hackathons: any[] = [];
 
-      // Convert API response to component format
-      const hackathons = response?.data?.hackathons || [];
-      const convertedHackathons = hackathons.map(convertApiHackathon);
+      if (source === 'scraped') {
+        // Get only scraped hackathons
+        response = await hackathonsApi.getScraped(apiParams);
+        hackathons = response?.data?.hackathons || [];
+      } else if (source === 'database') {
+        // Get only database hackathons
+        response = await hackathonsApi.getAll(apiParams);
+        hackathons = response?.data?.hackathons || [];
+        hackathons = hackathons.map(convertApiHackathon);
+      } else {
+        // Get combined hackathons from all sources
+        response = await hackathonsApi.getAllSources(apiParams);
+        hackathons = response?.data?.hackathons || [];
+      }
 
       // Apply frontend filters that aren't handled by the API
-      let filteredHackathons = convertedHackathons;
+      let filteredHackathons = hackathons;
 
       if (filters.teamSize !== 'all') {
-        filteredHackathons = filteredHackathons.filter(h => {
-          const maxSize = h.team_size_max || h.team_size_min;
+        filteredHackathons = filteredHackathons.filter((h: any) => {
+          const maxSize = h.team_size_max || h.teamSize?.split('-')[1] || h.team_size_min || 4;
+          const parsedMaxSize = typeof maxSize === 'string' ? parseInt(maxSize) : maxSize;
           switch (filters.teamSize) {
             case '1':
-              return h.team_size_min === 1 && maxSize === 1;
+              return parsedMaxSize === 1;
             case '2-4':
-              return maxSize >= 2 && maxSize <= 4;
+              return parsedMaxSize >= 2 && parsedMaxSize <= 4;
             case '5+':
-              return maxSize >= 5;
+              return parsedMaxSize >= 5;
             default:
               return true;
           }
@@ -136,10 +148,13 @@ export const Dashboard = () => {
     }
   };
 
+  const [activeTab, setActiveTab] = useState('all-sources');
+
   useEffect(() => {
-    fetchHackathons();
+    const source = activeTab === 'all-sources' ? 'all' : activeTab as 'database' | 'scraped';
+    fetchHackathons(source);
     fetchHackathonsInCalendar();
-  }, [filters]);
+  }, [filters, activeTab]);
 
   useEffect(() => {
     fetchHackathonsInCalendar();
@@ -242,14 +257,21 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsTrigger value="all-sources">All Sources</TabsTrigger>
+            <TabsTrigger value="scraped">Live from Unstop</TabsTrigger>
+            <TabsTrigger value="database">Database</TabsTrigger>
             <TabsTrigger value="calendar">Calendar</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <HackathonFilters filters={filters} onFiltersChange={setFilters} />
+          <TabsContent value="all-sources" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <HackathonFilters filters={filters} onFiltersChange={setFilters} />
+              <Button onClick={() => fetchHackathons('all')} disabled={loading} variant="outline" size="sm">
+                {loading ? "Loading..." : "Refresh All"}
+              </Button>
+            </div>
 
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -275,6 +297,90 @@ export const Dashboard = () => {
                 <h3 className="text-lg font-semibold mb-2">No hackathons found</h3>
                 <p className="text-muted-foreground">
                   Try adjusting your filters to see more results.
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="scraped" className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-semibold mb-1">Live Hackathons from Unstop</h2>
+                <p className="text-sm text-muted-foreground">Fresh data scraped from Unstop.com</p>
+              </div>
+              <Button onClick={() => fetchHackathons('scraped')} disabled={loading} variant="outline" size="sm">
+                {loading ? "Loading..." : "Refresh Scraped"}
+              </Button>
+            </div>
+
+            <HackathonFilters filters={filters} onFiltersChange={setFilters} />
+
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-96 bg-muted animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {hackathons.map((hackathon) => (
+                  <HackathonCard
+                    key={hackathon.id}
+                    hackathon={hackathon}
+                    onToggleCalendar={handleToggleCalendar}
+                    isInCalendar={hackathonsInCalendar.has(hackathon.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {!loading && hackathons.length === 0 && (
+              <div className="text-center py-12">
+                <h3 className="text-lg font-semibold mb-2">No scraped hackathons available</h3>
+                <p className="text-muted-foreground">
+                  Run the scraper to get fresh data from Unstop.com
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="database" className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-semibold mb-1">Database Hackathons</h2>
+                <p className="text-sm text-muted-foreground">Hackathons stored in our database</p>
+              </div>
+              <Button onClick={() => fetchHackathons('database')} disabled={loading} variant="outline" size="sm">
+                {loading ? "Loading..." : "Refresh Database"}
+              </Button>
+            </div>
+
+            <HackathonFilters filters={filters} onFiltersChange={setFilters} />
+
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-96 bg-muted animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {hackathons.map((hackathon) => (
+                  <HackathonCard
+                    key={hackathon.id}
+                    hackathon={hackathon}
+                    onToggleCalendar={handleToggleCalendar}
+                    isInCalendar={hackathonsInCalendar.has(hackathon.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {!loading && hackathons.length === 0 && (
+              <div className="text-center py-12">
+                <h3 className="text-lg font-semibold mb-2">No database hackathons found</h3>
+                <p className="text-muted-foreground">
+                  Add hackathons to the database or check your connection.
                 </p>
               </div>
             )}
