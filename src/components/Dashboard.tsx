@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { HackathonCard } from './HackathonCard';
 import { HackathonFilters } from './HackathonFilters';
 import { CalendarView } from './CalendarView';
 import { NotificationSystem } from './NotificationSystem';
-import { hackathonsApi, type Hackathon as ApiHackathon } from '@/services/api';
+import { hackathonsApi, calendarApi, type Hackathon as ApiHackathon } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -52,6 +52,37 @@ const convertApiHackathon = (apiHackathon: ApiHackathon): Hackathon => ({
   registration_start: null,
 });
 
+// Helper function to convert mixed API response (database + scraped) to component interface
+const convertMixedHackathon = (hackathon: any): Hackathon => {
+  // Handle database format
+  if (hackathon._id && hackathon.startDate) {
+    return convertApiHackathon(hackathon as ApiHackathon);
+  }
+
+  // Handle scraped format
+  return {
+    id: hackathon._id || hackathon.id,
+    title: hackathon.title,
+    description: hackathon.description,
+    organizer: hackathon.organizer?.name || hackathon.organizer || 'Unstop',
+    location: typeof hackathon.location === 'object'
+      ? hackathon.location.address || hackathon.location.venue || hackathon.location.type
+      : hackathon.location || 'Online',
+    team_size_min: hackathon.teamSize?.min || 1,
+    team_size_max: hackathon.teamSize?.max || 4,
+    status: hackathon.status,
+    registration_deadline: hackathon.registrationDeadline || hackathon.deadline,
+    start_date: hackathon.startDate || hackathon.start_date,
+    end_date: hackathon.endDate || hackathon.end_date,
+    website_url: hackathon.links?.website || hackathon.url || null,
+    prize_pool: hackathon.prize || null,
+    tags: hackathon.tags || [hackathon.category || 'Technology'],
+    created_at: hackathon.createdAt || hackathon.created_at,
+    updated_at: hackathon.updatedAt || hackathon.updated_at,
+    registration_start: null,
+  };
+};
+
 interface FilterState {
   search: string;
   status: string;
@@ -60,11 +91,22 @@ interface FilterState {
   sortBy: string;
 }
 
+// Global cache to prevent redundant API calls
+let globalCache: { [key: string]: { data: any[], timestamp: number } } = {};
+let activeRequests: { [key: string]: Promise<any> } = {};
+
+// Rate limiting constants
+const CACHE_DURATION = 60000; // 1 minute cache
+const MIN_REQUEST_INTERVAL = 5000; // 5 seconds between requests
+
 export const Dashboard = () => {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [allHackathons, setAllHackathons] = useState<Hackathon[]>([]);
+  const [loading, setLoading] = useState(false);
   const [calendarRefresh, setCalendarRefresh] = useState(0);
   const [hackathonsInCalendar, setHackathonsInCalendar] = useState<Set<string>>(new Set());
+  const [lastRequestTime, setLastRequestTime] = useState(0);
+  const [activeTab, setActiveTab] = useState('all-sources');
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     status: 'all',
@@ -75,90 +117,255 @@ export const Dashboard = () => {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
-  const fetchHackathons = async (source: 'all' | 'database' | 'scraped' = 'all') => {
-    try {
-      setLoading(true);
+  // Memoized filter function for better performance
+  const applyFilters = useMemo(() => {
+    return (hackathonsToFilter: Hackathon[]) => {
+      let filteredHackathons = [...hackathonsToFilter];
 
-      // Prepare API parameters based on filters
-      const apiParams: any = {};
-
-      if (filters.search) apiParams.search = filters.search;
-      if (filters.status !== 'all') apiParams.status = filters.status;
-      if (filters.location !== 'all') apiParams.location = filters.location;
-      if (filters.sortBy) apiParams.sortBy = filters.sortBy;
-
-      let response: any;
-      let hackathons: any[] = [];
-
-      if (source === 'scraped') {
-        // Get only scraped hackathons
-        response = await hackathonsApi.getScraped(apiParams);
-        hackathons = response?.data?.hackathons || [];
-      } else if (source === 'database') {
-        // Get only database hackathons
-        response = await hackathonsApi.getAll(apiParams);
-        hackathons = response?.data?.hackathons || [];
-        hackathons = hackathons.map(convertApiHackathon);
-      } else {
-        // Get combined hackathons from all sources
-        response = await hackathonsApi.getAllSources(apiParams);
-        hackathons = response?.data?.hackathons || [];
+      // Apply search filter
+      if (filters.search.trim()) {
+        const searchTerm = filters.search.toLowerCase().trim();
+        filteredHackathons = filteredHackathons.filter((h) =>
+          h.title.toLowerCase().includes(searchTerm) ||
+          h.description?.toLowerCase().includes(searchTerm) ||
+          h.organizer.toLowerCase().includes(searchTerm) ||
+          h.location.toLowerCase().includes(searchTerm) ||
+          h.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+        );
       }
 
-      // Apply frontend filters that aren't handled by the API
-      let filteredHackathons = hackathons;
+      // Apply status filter
+      if (filters.status !== 'all') {
+        filteredHackathons = filteredHackathons.filter((h) => {
+          // Handle different status formats
+          const status = h.status.toLowerCase();
+          const filterStatus = filters.status.toLowerCase();
 
+          // Map common status variations
+          if (filterStatus === 'upcoming') {
+            return status === 'upcoming' || status === 'open' || status === 'registration_open';
+          } else if (filterStatus === 'ongoing') {
+            return status === 'ongoing' || status === 'live' || status === 'active';
+          } else if (filterStatus === 'ended') {
+            return status === 'ended' || status === 'completed' || status === 'closed' || status === 'finished';
+          }
+
+          return status === filterStatus;
+        });
+      }
+
+      // Apply location filter
+      if (filters.location !== 'all') {
+        filteredHackathons = filteredHackathons.filter((h) => {
+          const location = h.location.toLowerCase();
+          if (filters.location === 'online') {
+            return location.includes('online') || location.includes('virtual') || location.includes('remote');
+          } else if (filters.location === 'offline') {
+            return !location.includes('online') && !location.includes('virtual') && !location.includes('remote');
+          }
+          return location.includes(filters.location.toLowerCase());
+        });
+      }
+
+      // Apply team size filter
       if (filters.teamSize !== 'all') {
-        filteredHackathons = filteredHackathons.filter((h: any) => {
-          const maxSize = h.team_size_max || h.teamSize?.split('-')[1] || h.team_size_min || 4;
-          const parsedMaxSize = typeof maxSize === 'string' ? parseInt(maxSize) : maxSize;
+        filteredHackathons = filteredHackathons.filter((h) => {
+          const minSize = h.team_size_min || 1;
+          const maxSize = h.team_size_max || 4;
+
           switch (filters.teamSize) {
             case '1':
-              return parsedMaxSize === 1;
+              return minSize <= 1 && maxSize >= 1;
             case '2-4':
-              return parsedMaxSize >= 2 && parsedMaxSize <= 4;
+              return minSize <= 4 && maxSize >= 2;
             case '5+':
-              return parsedMaxSize >= 5;
+              return maxSize >= 5;
             default:
               return true;
           }
         });
       }
 
-      setHackathons(filteredHackathons);
-    } catch (error) {
-      console.error('Error fetching hackathons:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load hackathons. Please try again.",
-        variant: "destructive",
+      // Apply sorting
+      filteredHackathons.sort((a, b) => {
+        switch (filters.sortBy) {
+          case 'title':
+            return a.title.localeCompare(b.title);
+          case 'registration_deadline':
+            return new Date(a.registration_deadline).getTime() - new Date(b.registration_deadline).getTime();
+          case 'created_at':
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          case 'start_date':
+          default:
+            return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+        }
       });
-    } finally {
+
+      return filteredHackathons;
+    };
+  }, [filters]);
+
+  const fetchHackathons = async (source: 'all' | 'database' = 'all', forceRefresh = false) => {
+    const now = Date.now();
+    const cacheKey = `${source}-base`; // Use base cache key without filters
+
+    // Check if we have cached data and it's still fresh
+    const cachedData = globalCache[cacheKey];
+    if (cachedData && !forceRefresh && (now - cachedData.timestamp) < CACHE_DURATION) {
+      console.log(`Using cached data for ${cacheKey}`);
+      setAllHackathons(cachedData.data);
+      const filtered = applyFilters(cachedData.data);
+      setHackathons(filtered);
       setLoading(false);
+      return;
     }
+
+    // Check if there's already a request in progress
+    if (activeRequests[cacheKey]) {
+      console.log(`Request already in progress for ${cacheKey}`);
+      return activeRequests[cacheKey];
+    }
+
+    // Rate limiting check
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (!forceRefresh && timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+      console.log(`Rate limited: ${MIN_REQUEST_INTERVAL - timeSinceLastRequest}ms remaining`);
+      toast({
+        title: "Please Wait",
+        description: `Please wait ${Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000)} seconds before refreshing.`,
+        variant: "default",
+      });
+      return;
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        setLoading(true);
+        setLastRequestTime(now);
+
+        let response: any;
+        let hackathons: any[] = [];
+
+        if (source === 'database') {
+          response = await hackathonsApi.getAll();
+          hackathons = response?.data?.hackathons || [];
+          hackathons = hackathons.map(convertApiHackathon);
+        } else {
+          response = await hackathonsApi.getAllSources();
+          hackathons = response?.data?.hackathons || [];
+          hackathons = hackathons.map(convertMixedHackathon);
+        }
+
+        // Cache the raw results (without filters)
+        globalCache[cacheKey] = {
+          data: hackathons,
+          timestamp: now
+        };
+
+        setAllHackathons(hackathons);
+        const filtered = applyFilters(hackathons);
+        setHackathons(filtered);
+
+      } catch (error: any) {
+        console.error('Error fetching hackathons:', error);
+
+        if (error.message?.includes('429') || error.message?.includes('Too Many Requests') ||
+          error.response?.status === 429) {
+          toast({
+            title: "Rate Limited",
+            description: "Too many requests. Please wait before trying again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        toast({
+          title: "Error",
+          description: "Failed to load hackathons. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+        delete activeRequests[cacheKey];
+      }
+    })();
+
+    activeRequests[cacheKey] = fetchPromise;
+    return fetchPromise;
+  };  // Function to get hackathons for display (filtering is now handled in useEffect)
+  const getFilteredHackathons = () => {
+    return hackathons;
   };
 
   const fetchHackathonsInCalendar = async () => {
     try {
-      // TODO: Implement calendar events with MongoDB backend
-      // For now, just set empty calendar
-      setHackathonsInCalendar(new Set());
+      const response = await calendarApi.getCalendarHackathons();
+      if (response.success) {
+        setHackathonsInCalendar(new Set(response.data.hackathonIds));
+      }
     } catch (error) {
       console.error('Error fetching calendar events:', error);
+      // Fallback to empty set if API fails
+      setHackathonsInCalendar(new Set());
     }
   };
 
-  const [activeTab, setActiveTab] = useState('all-sources');
-
+  // Handle filter changes - apply filters to existing data
   useEffect(() => {
-    const source = activeTab === 'all-sources' ? 'all' : activeTab as 'database' | 'scraped';
-    fetchHackathons(source);
-    fetchHackathonsInCalendar();
-  }, [filters, activeTab]);
+    if (activeTab === 'my-rounds') {
+      // For My Rounds, filter calendar hackathons and apply filters
+      const calendarHackathons = allHackathons.filter(h => hackathonsInCalendar.has(h.id));
+      const filtered = applyFilters(calendarHackathons);
+      setHackathons(filtered);
+    } else if (activeTab === 'all-sources') {
+      // Apply filters to all hackathons
+      const filtered = applyFilters(allHackathons);
+      setHackathons(filtered);
+    }
+  }, [filters.search, filters.status, filters.location, filters.sortBy, filters.teamSize, activeTab, allHackathons, hackathonsInCalendar]);
 
+  // Initial load only - just once when component mounts
   useEffect(() => {
+    fetchHackathons('all');
     fetchHackathonsInCalendar();
-  }, [calendarRefresh]);
+  }, []); // Empty dependency array - only run once on mount
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Clear filters with Escape key
+      if (e.key === 'Escape') {
+        const hasActiveFilters = filters.search || filters.status !== 'all' ||
+          filters.location !== 'all' || filters.teamSize !== 'all';
+        if (hasActiveFilters) {
+          e.preventDefault();
+          setFilters({
+            search: '',
+            status: 'all',
+            location: 'all',
+            teamSize: 'all',
+            sortBy: 'start_date'
+          });
+          toast({
+            title: "Filters Cleared",
+            description: "All filters have been reset.",
+          });
+        }
+      }
+
+      // Focus search with Ctrl/Cmd + K
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [filters, setFilters, toast]);
 
   const handleToggleCalendar = async (hackathon: Hackathon) => {
     const isInCalendar = hackathonsInCalendar.has(hackathon.id);
@@ -166,47 +373,98 @@ export const Dashboard = () => {
     if (isInCalendar) {
       // Remove from calendar
       try {
-        // TODO: Implement calendar removal with MongoDB backend
+        console.log('Removing hackathon from calendar:', hackathon.id, hackathon.title);
+        const response = await calendarApi.removeFromCalendar(hackathon.id);
 
-        toast({
-          title: "Removed from Calendar",
-          description: `${hackathon.title} has been removed from your calendar.`,
-        });
+        if (response.success) {
+          toast({
+            title: "Removed from Calendar",
+            description: `${hackathon.title} has been removed from your calendar.`,
+          });
 
-        // Update local state
-        const updatedCalendar = new Set(hackathonsInCalendar);
-        updatedCalendar.delete(hackathon.id);
-        setHackathonsInCalendar(updatedCalendar);
-      } catch (error) {
+          // Update local state
+          const updatedCalendar = new Set(hackathonsInCalendar);
+          updatedCalendar.delete(hackathon.id);
+          setHackathonsInCalendar(updatedCalendar);
+
+          // Trigger calendar refresh
+          setCalendarRefresh(prev => prev + 1);
+        } else {
+          throw new Error(response.message || 'Unknown error');
+        }
+      } catch (error: any) {
         console.error('Error removing from calendar:', error);
         toast({
           title: "Error",
-          description: "Failed to remove hackathon from calendar.",
+          description: error.message || "Failed to remove hackathon from calendar.",
           variant: "destructive",
         });
       }
     } else {
       // Add to calendar
       try {
-        // TODO: Implement calendar addition with MongoDB backend
+        console.log('Adding hackathon to calendar:', hackathon.id, hackathon.title);
+        const response = await calendarApi.addToCalendar(hackathon.id);
 
-        toast({
-          title: "Added to Calendar",
-          description: `${hackathon.title} has been added to your calendar.`,
-        });
+        if (response.success) {
+          toast({
+            title: "Added to Calendar",
+            description: `${hackathon.title} has been added to your calendar.`,
+          });
 
-        // Update local state
-        const updatedCalendar = new Set(hackathonsInCalendar);
-        updatedCalendar.add(hackathon.id);
-        setHackathonsInCalendar(updatedCalendar);
-      } catch (error) {
+          // Update local state
+          const updatedCalendar = new Set(hackathonsInCalendar);
+          updatedCalendar.add(hackathon.id);
+          setHackathonsInCalendar(updatedCalendar);
+
+          // Trigger calendar refresh
+          setCalendarRefresh(prev => prev + 1);
+        } else {
+          throw new Error(response.message || 'Unknown error');
+        }
+      } catch (error: any) {
         console.error('Error adding to calendar:', error);
-        toast({
-          title: "Error",
-          description: "Failed to add hackathon to calendar.",
-          variant: "destructive",
-        });
+
+        // Handle duplicate case gracefully
+        if (error.message?.includes('already in calendar') || error.message?.includes('409')) {
+          toast({
+            title: "Already Added",
+            description: `${hackathon.title} is already in your calendar.`,
+          });
+          // Update local state to reflect server state
+          const updatedCalendar = new Set(hackathonsInCalendar);
+          updatedCalendar.add(hackathon.id);
+          setHackathonsInCalendar(updatedCalendar);
+          setCalendarRefresh(prev => prev + 1);
+        } else {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to add hackathon to calendar.",
+            variant: "destructive",
+          });
+        }
       }
+    }
+  };
+
+  const handleRemove = async (hackathon: Hackathon) => {
+    try {
+      // Call the trash API endpoint
+      await hackathonsApi.moveToTrash(hackathon.id);
+
+      // Remove from local state
+      setHackathons(prevHackathons =>
+        prevHackathons.filter(h => h.id !== hackathon.id)
+      );
+
+      // Refresh the data only if necessary
+      if (activeTab === 'all-sources') {
+        await fetchHackathons('all', true); // Force refresh for remove action
+      }
+
+    } catch (error) {
+      console.error('Error removing hackathon:', error);
+      throw error; // Re-throw to let HackathonCard handle the toast
     }
   };
 
@@ -258,19 +516,29 @@ export const Dashboard = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="all-sources">All Sources</TabsTrigger>
-            <TabsTrigger value="scraped">Live from Unstop</TabsTrigger>
-            <TabsTrigger value="database">Database</TabsTrigger>
+            <TabsTrigger value="my-rounds">My Rounds</TabsTrigger>
             <TabsTrigger value="calendar">Calendar</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all-sources" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <HackathonFilters filters={filters} onFiltersChange={setFilters} />
-              <Button onClick={() => fetchHackathons('all')} disabled={loading} variant="outline" size="sm">
-                {loading ? "Loading..." : "Refresh All"}
-              </Button>
+            <div className="flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <HackathonFilters filters={filters} onFiltersChange={setFilters} />
+                <Button onClick={() => fetchHackathons('all', true)} disabled={loading} variant="outline" size="sm">
+                  {loading ? "Loading..." : "Refresh All"}
+                </Button>
+              </div>
+
+              {!loading && (
+                <div className="flex justify-between items-center text-sm text-muted-foreground">
+                  <span>
+                    Showing {getFilteredHackathons().length} of {allHackathons.length} hackathons
+                    {getFilteredHackathons().length !== allHackathons.length && " (filtered)"}
+                  </span>
+                </div>
+              )}
             </div>
 
             {loading ? (
@@ -281,18 +549,19 @@ export const Dashboard = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {hackathons.map((hackathon) => (
+                {getFilteredHackathons().map((hackathon) => (
                   <HackathonCard
                     key={hackathon.id}
                     hackathon={hackathon}
                     onToggleCalendar={handleToggleCalendar}
                     isInCalendar={hackathonsInCalendar.has(hackathon.id)}
+                    onRemove={handleRemove}
                   />
                 ))}
               </div>
             )}
 
-            {!loading && hackathons.length === 0 && (
+            {!loading && getFilteredHackathons().length === 0 && (
               <div className="text-center py-12">
                 <h3 className="text-lg font-semibold mb-2">No hackathons found</h3>
                 <p className="text-muted-foreground">
@@ -302,18 +571,26 @@ export const Dashboard = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="scraped" className="space-y-6">
+          <TabsContent value="my-rounds" className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-xl font-semibold mb-1">Live Hackathons from Unstop</h2>
-                <p className="text-sm text-muted-foreground">Fresh data scraped from Unstop.com</p>
+                <h2 className="text-xl font-semibold mb-1">My Rounds</h2>
+                <p className="text-sm text-muted-foreground">Hackathons you've added to your calendar</p>
               </div>
-              <Button onClick={() => fetchHackathons('scraped')} disabled={loading} variant="outline" size="sm">
-                {loading ? "Loading..." : "Refresh Scraped"}
-              </Button>
             </div>
 
-            <HackathonFilters filters={filters} onFiltersChange={setFilters} />
+            <div className="flex flex-col gap-4">
+              <HackathonFilters filters={filters} onFiltersChange={setFilters} />
+
+              {!loading && (
+                <div className="flex justify-between items-center text-sm text-muted-foreground">
+                  <span>
+                    Showing {getFilteredHackathons().length} of {allHackathons.filter(h => hackathonsInCalendar.has(h.id)).length} hackathons in your calendar
+                    {getFilteredHackathons().length !== allHackathons.filter(h => hackathonsInCalendar.has(h.id)).length && " (filtered)"}
+                  </span>
+                </div>
+              )}
+            </div>
 
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -323,64 +600,23 @@ export const Dashboard = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {hackathons.map((hackathon) => (
+                {getFilteredHackathons().map((hackathon) => (
                   <HackathonCard
                     key={hackathon.id}
                     hackathon={hackathon}
                     onToggleCalendar={handleToggleCalendar}
                     isInCalendar={hackathonsInCalendar.has(hackathon.id)}
+                    onRemove={handleRemove}
                   />
                 ))}
               </div>
             )}
 
-            {!loading && hackathons.length === 0 && (
+            {!loading && getFilteredHackathons().length === 0 && (
               <div className="text-center py-12">
-                <h3 className="text-lg font-semibold mb-2">No scraped hackathons available</h3>
+                <h3 className="text-lg font-semibold mb-2">No hackathons in your rounds yet</h3>
                 <p className="text-muted-foreground">
-                  Run the scraper to get fresh data from Unstop.com
-                </p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="database" className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-xl font-semibold mb-1">Database Hackathons</h2>
-                <p className="text-sm text-muted-foreground">Hackathons stored in our database</p>
-              </div>
-              <Button onClick={() => fetchHackathons('database')} disabled={loading} variant="outline" size="sm">
-                {loading ? "Loading..." : "Refresh Database"}
-              </Button>
-            </div>
-
-            <HackathonFilters filters={filters} onFiltersChange={setFilters} />
-
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-96 bg-muted animate-pulse rounded-lg" />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {hackathons.map((hackathon) => (
-                  <HackathonCard
-                    key={hackathon.id}
-                    hackathon={hackathon}
-                    onToggleCalendar={handleToggleCalendar}
-                    isInCalendar={hackathonsInCalendar.has(hackathon.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {!loading && hackathons.length === 0 && (
-              <div className="text-center py-12">
-                <h3 className="text-lg font-semibold mb-2">No database hackathons found</h3>
-                <p className="text-muted-foreground">
-                  Add hackathons to the database or check your connection.
+                  Add hackathons to your calendar to see them here. Click "Add to Calendar" on any hackathon card!
                 </p>
               </div>
             )}

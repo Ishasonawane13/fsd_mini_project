@@ -1,0 +1,374 @@
+[
+  {
+    "id": 1,
+    "title": "Price & Premium",
+    "description": "Hackathon organized by IIT. Price & Premium - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-08",
+    "endDate": "2025-11-15",
+    "registrationDeadline": "2025-11-01",
+    "location": {
+      "type": "online",
+      "venue": "IIT",
+      "address": {
+        "city": "IIT",
+        "country": "India"
+      }
+    },
+    "organizer": "IIT",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:32:25",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Price & Premium  Fintech Club, IIT (ISM) Dhanbad 🏆35,000  46 Registered 6   days left  Coding Challenge  All "
+  },
+  {
+    "id": 2,
+    "title": "Code Mahotsav 2.O",
+    "description": "Hackathon organized by O Pranveer Singh Institute Of Technology. Code Mahotsav 2.O - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-21",
+    "endDate": "2025-11-28",
+    "registrationDeadline": "2025-11-14",
+    "location": {
+      "type": "online",
+      "venue": "O Pranveer Singh Institute Of Technology",
+      "address": {
+        "city": "O Pranveer Singh Institute Of Technology",
+        "country": "India"
+      }
+    },
+    "organizer": "O Pranveer Singh Institute Of Technology",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:32:56",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Code Mahotsav 2.O  Pranveer Singh Institute Of Technology(PSIT),Kanpur  102 Registered 19   days left  Coding Challenge  Undergraduate +2"
+  },
+  {
+    "id": 3,
+    "title": "Mineral Forecasting",
+    "description": "Hackathon organized by Mineral Forecasting Indian Institute of Technology, Indian School of Mines. Mineral Forecasting - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-25",
+    "endDate": "2025-12-02",
+    "registrationDeadline": "2025-11-18",
+    "location": {
+      "type": "online",
+      "venue": "Mineral Forecasting Indian Institute of Technology, Indian School of Mines",
+      "address": {
+        "city": "Mineral Forecasting Indian Institute of Technology, Indian School of Mines",
+        "country": "India"
+      }
+    },
+    "organizer": "Mineral Forecasting Indian Institute of Technology, Indian School of Mines",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:33:26",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Mineral Forecasting  Indian Institute of Technology, Indian School of Mines (IIT ISM), Dhanbad 🏆4,00,000  62 Registered 23   days left  Coding Challenge  All +2"
+  },
+  {
+    "id": 4,
+    "title": "DSA Week: DP and Graphs Grand Finale",
+    "description": "Hackathon organized by DP and Graphs Grand Finale Vellore Institute of Technology. DSA Week: DP and Graphs Grand Finale - Exciting opportunity for developers and innovators.",
+    "startDate": "2024-12-01",
+    "endDate": "2024-12-15",
+    "registrationDeadline": "2024-11-30",
+    "location": {
+      "type": "online",
+      "venue": "DP and Graphs Grand Finale Vellore Institute of Technology",
+      "address": {
+        "city": "DP and Graphs Grand Finale Vellore Institute of Technology",
+        "country": "India"
+      }
+    },
+    "organizer": "DP and Graphs Grand Finale Vellore Institute of Technology",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:33:57",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " DSA Week: DP and Graphs Grand Finale  Vellore Institute of Technology (VIT), Vellore  81 Registered 21  hours left  Coding Challenge  All "
+  },
+  {
+    "id": 5,
+    "title": "kAIzen - A GenAI Product Hackathon",
+    "description": "Hackathon organized by day left Coding Challenge College Festival. kAIzen - A GenAI Product Hackathon - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-03",
+    "endDate": "2025-11-10",
+    "registrationDeadline": "2025-10-27",
+    "location": {
+      "type": "online",
+      "venue": "day left Coding Challenge College Festival",
+      "address": {
+        "city": "day left Coding Challenge College Festival",
+        "country": "India"
+      }
+    },
+    "organizer": "day left Coding Challenge College Festival",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:34:27",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " kAIzen - A GenAI Product Hackathon  Xavier School of Management (XLRI) 🏆1,33,500  987 Registered 1  day left  Coding Challenge  College Festival +7"
+  },
+  {
+    "id": 6,
+    "title": "Reliance T.U.P XI",
+    "description": "Hackathon organized by Unstop. Reliance T.U.P XI - Exciting opportunity for developers and innovators.",
+    "startDate": "2024-12-01",
+    "endDate": "2024-12-15",
+    "registrationDeadline": "2024-11-30",
+    "location": {
+      "type": "online",
+      "venue": "Online",
+      "address": {
+        "city": "Online",
+        "country": "India"
+      }
+    },
+    "organizer": "Unstop",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:34:58",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Reliance T.U.P XI  Reliance Industries Limited (RIL)  5,766 Registered"
+  },
+  {
+    "id": 7,
+    "title": "Beat The Leap - AI Challenge",
+    "description": "Hackathon organized by AI Challenge Plaksha University, Punjab. Beat The Leap - AI Challenge - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-12",
+    "endDate": "2025-11-19",
+    "registrationDeadline": "2025-11-05",
+    "location": {
+      "type": "online",
+      "venue": "AI Challenge Plaksha University, Punjab",
+      "address": {
+        "city": "AI Challenge Plaksha University, Punjab",
+        "country": "India"
+      }
+    },
+    "organizer": "AI Challenge Plaksha University, Punjab",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:35:28",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Beat The Leap - AI Challenge  Plaksha University, Punjab  4 Registered 10   days left  Undergraduate  Postgraduate +8"
+  },
+  {
+    "id": 8,
+    "title": "Predict2Protect",
+    "description": "Hackathon organized by Indian Institutes of Technology. Predict2Protect - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-10",
+    "endDate": "2025-11-17",
+    "registrationDeadline": "2025-11-03",
+    "location": {
+      "type": "online",
+      "venue": "Indian Institutes of Technology",
+      "address": {
+        "city": "Indian Institutes of Technology",
+        "country": "India"
+      }
+    },
+    "organizer": "Indian Institutes of Technology",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:35:59",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Predict2Protect  Department of Management Studies (DMS), Indian Institutes of Technology (IIT) (ISM), Dhanbad 🏆35,000  132 Registered 8   days left  Coding Challenge  All +3"
+  },
+  {
+    "id": 9,
+    "title": "Code2Game",
+    "description": "Hackathon organized by Game National Institute of Technology. Code2Game - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-08",
+    "endDate": "2025-11-15",
+    "registrationDeadline": "2025-11-01",
+    "location": {
+      "type": "online",
+      "venue": "Game National Institute of Technology",
+      "address": {
+        "city": "Game National Institute of Technology",
+        "country": "India"
+      }
+    },
+    "organizer": "Game National Institute of Technology",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:36:29",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Code2Game  National Institute of Technology (NIT), Arunachal Pradesh 🏆8,000  18 Registered 6   days left  Others  Undergraduate +6"
+  },
+  {
+    "id": 10,
+    "title": "Aarambh",
+    "description": "Hackathon organized by D Institute of Science and Technology, Avadi. Aarambh - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-05",
+    "endDate": "2025-11-12",
+    "registrationDeadline": "2025-10-29",
+    "location": {
+      "type": "online",
+      "venue": "D Institute of Science and Technology, Avadi",
+      "address": {
+        "city": "D Institute of Science and Technology, Avadi",
+        "country": "India"
+      }
+    },
+    "organizer": "D Institute of Science and Technology, Avadi",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:37:00",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Aarambh  Vel Tech Rangarajan Dr. Sagunthala R&D Institute of Science and Technology, Avadi  21 Registered 3   days left  Undergraduate  Engineering Students +1"
+  },
+  {
+    "id": 11,
+    "title": "Capture the Flag",
+    "description": "Hackathon organized by Capture the Flag RV Institute of Technology and Management, Karnataka. Capture the Flag - Exciting opportunity for developers and innovators.",
+    "startDate": "2025-11-14",
+    "endDate": "2025-11-21",
+    "registrationDeadline": "2025-11-07",
+    "location": {
+      "type": "online",
+      "venue": "Capture the Flag RV Institute of Technology and Management, Karnataka",
+      "address": {
+        "city": "Capture the Flag RV Institute of Technology and Management, Karnataka",
+        "country": "India"
+      }
+    },
+    "organizer": "Capture the Flag RV Institute of Technology and Management, Karnataka",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:37:30",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " Capture the Flag  RV Institute of Technology and Management, Karnataka 🏆5,000  4 Registered 12   days left  Coding Challenge  All "
+  },
+  {
+    "id": 12,
+    "title": "SEED Hackathon 2025",
+    "description": "Hackathon organized by Unstop. SEED Hackathon 2025 - Exciting opportunity for developers and innovators.",
+    "startDate": "2024-12-01",
+    "endDate": "2024-12-15",
+    "registrationDeadline": "2024-11-30",
+    "location": {
+      "type": "online",
+      "venue": "Online",
+      "address": {
+        "city": "Online",
+        "country": "India"
+      }
+    },
+    "organizer": "Unstop",
+    "prize": "To be announced",
+    "url": "N/A",
+    "status": "upcoming",
+    "category": "Technology",
+    "difficulty": "Intermediate",
+    "teamSize": {
+      "min": 1,
+      "max": 4
+    },
+    "source": "Unstop",
+    "scraped_at": "2025-10-26 23:38:01",
+    "featured": false,
+    "isRegistrationOpen": true,
+    "raw_text": " SEED Hackathon 2025  SEED Global Education Services Private Limited  1,132 Registered"
+  }
+]

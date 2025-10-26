@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { hackathonsApi, type Hackathon } from '@/services/api';
+import { hackathonsApi, calendarApi, type Hackathon } from '@/services/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,12 +37,25 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
 
   const fetchCalendarEvents = async () => {
     try {
-      // Get all hackathons from our MongoDB API
-      const response = await hackathonsApi.getAll({});
-      const hackathons = response.data.hackathons;
+      // Get hackathons from user's calendar (My Rounds)
+      const calendarResponse = await calendarApi.getCalendarHackathons();
+      if (!calendarResponse.success) {
+        console.error('Failed to fetch calendar hackathons:', calendarResponse);
+        setEvents([]);
+        return;
+      }
+
+      // Use the hackathons returned by the calendar API (these are from My Rounds)
+      const hackathons = calendarResponse.data.hackathons || [];
+
+      if (hackathons.length === 0) {
+        setEvents([]);
+        return;
+      }
 
       const formattedEvents: CalendarEvent[] = [];
 
+      // Process all hackathons from My Rounds
       hackathons.forEach(hackathon => {
         // Registration deadline event
         if (hackathon.registrationDeadline) {
@@ -147,7 +160,19 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
 
   return (
     <div className="h-[600px]">
-      <style>{`
+      {events.length === 0 ? (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No hackathons in your calendar</h3>
+            <p className="text-muted-foreground">
+              Add hackathons to your calendar from the "All Sources" tab to see them here.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <style>{`
         .rbc-calendar {
           color: hsl(var(--foreground));
           background: hsl(var(--background));
@@ -203,116 +228,118 @@ export const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
         }
       `}</style>
 
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height: '100%' }}
-        onSelectEvent={handleEventClick}
-        eventPropGetter={eventStyleGetter}
-        views={['month', 'week', 'day']}
-        defaultView="month"
-      />
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: '100%' }}
+            onSelectEvent={handleEventClick}
+            eventPropGetter={eventStyleGetter}
+            views={['month', 'week', 'day']}
+            defaultView="month"
+          />
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5" />
-              {selectedEvent?.title}
-            </DialogTitle>
-          </DialogHeader>
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5" />
+                  {selectedEvent?.title}
+                </DialogTitle>
+              </DialogHeader>
 
-          {selectedEvent && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  {format(selectedEvent.start, 'PPP p')}
-                </p>
-
-                {selectedEvent.resource.description && (
-                  <p className="text-sm mb-3">{selectedEvent.resource.description}</p>
-                )}
-
-                <Badge variant="secondary" className="text-xs">
-                  {selectedEvent.resource.event_type.replace('_', ' ')}
-                </Badge>
-              </div>
-
-              {selectedEvent.resource.hackathon && (
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-2">Hackathon Details</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center">
-                      <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <span>
-                        {selectedEvent.resource.hackathon.location.type === 'online'
-                          ? 'Online'
-                          : selectedEvent.resource.hackathon.location.venue ||
-                          `${selectedEvent.resource.hackathon.location.address?.city}, ${selectedEvent.resource.hackathon.location.address?.country}`
-                        }
-                      </span>
-                    </div>
-
-                    {selectedEvent.resource.hackathon.prizes && selectedEvent.resource.hackathon.prizes.length > 0 && (
-                      <div className="flex items-center">
-                        <Trophy className="w-4 h-4 mr-2 text-muted-foreground" />
-                        <span>
-                          {selectedEvent.resource.hackathon.prizes[0].currency} {selectedEvent.resource.hackathon.prizes[0].amount.toLocaleString()}
-                          {selectedEvent.resource.hackathon.prizes.length > 1 && ' + more prizes'}
-                        </span>
-                      </div>
-                    )}
-
-                    <p className="text-muted-foreground">
-                      by {selectedEvent.resource.hackathon.organizer}
+              {selectedEvent && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {format(selectedEvent.start, 'PPP p')}
                     </p>
 
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {selectedEvent.resource.hackathon.tags?.map((tag: string) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
+                    {selectedEvent.resource.description && (
+                      <p className="text-sm mb-3">{selectedEvent.resource.description}</p>
+                    )}
+
+                    <Badge variant="secondary" className="text-xs">
+                      {selectedEvent.resource.event_type.replace('_', ' ')}
+                    </Badge>
+                  </div>
+
+                  {selectedEvent.resource.hackathon && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-medium mb-2">Hackathon Details</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center">
+                          <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
+                          <span>
+                            {selectedEvent.resource.hackathon.location.type === 'online'
+                              ? 'Online'
+                              : selectedEvent.resource.hackathon.location.venue ||
+                              `${selectedEvent.resource.hackathon.location.address?.city}, ${selectedEvent.resource.hackathon.location.address?.country}`
+                            }
+                          </span>
+                        </div>
+
+                        {selectedEvent.resource.hackathon.prizes && selectedEvent.resource.hackathon.prizes.length > 0 && (
+                          <div className="flex items-center">
+                            <Trophy className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <span>
+                              {selectedEvent.resource.hackathon.prizes[0].currency} {selectedEvent.resource.hackathon.prizes[0].amount.toLocaleString()}
+                              {selectedEvent.resource.hackathon.prizes.length > 1 && ' + more prizes'}
+                            </span>
+                          </div>
+                        )}
+
+                        <p className="text-muted-foreground">
+                          by {selectedEvent.resource.hackathon.organizer}
+                        </p>
+
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {selectedEvent.resource.hackathon.tags?.map((tag: string) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
+                  )}
+
+                  <div className="flex gap-2 pt-4 border-t">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteEvent(selectedEvent.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </Button>
+
+                    {selectedEvent.resource.hackathon?.links?.website && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                      >
+                        <a
+                          href={selectedEvent.resource.hackathon.links.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Visit
+                        </a>
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
-
-              <div className="flex gap-2 pt-4 border-t">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDeleteEvent(selectedEvent.id)}
-                  className="flex items-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Remove
-                </Button>
-
-                {selectedEvent.resource.hackathon?.links?.website && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    asChild
-                  >
-                    <a
-                      href={selectedEvent.resource.hackathon.links.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Visit
-                    </a>
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 };

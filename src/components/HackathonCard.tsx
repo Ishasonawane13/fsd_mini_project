@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, Trophy, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Users, Trophy, ExternalLink, X } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,10 +36,30 @@ interface HackathonCardProps {
   hackathon: Hackathon;
   onToggleCalendar: (hackathon: Hackathon) => void;
   isInCalendar: boolean;
+  onRemove?: (hackathon: Hackathon) => void;
 }
 
-export const HackathonCard = ({ hackathon, onToggleCalendar, isInCalendar }: HackathonCardProps) => {
+export const HackathonCard = ({ hackathon, onToggleCalendar, isInCalendar, onRemove }: HackathonCardProps) => {
   const { toast } = useToast();
+
+  // Handle removing hackathon (move to trash)
+  const handleRemove = async () => {
+    if (onRemove) {
+      try {
+        await onRemove(hackathon);
+        toast({
+          title: "Hackathon removed",
+          description: `${hackathon.title} has been moved to trash and will be deleted in 7 days.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to remove hackathon. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
   // Helper functions to handle both database and scraped data formats
   const getOrganizerName = () => {
@@ -188,6 +208,17 @@ export const HackathonCard = ({ hackathon, onToggleCalendar, isInCalendar }: Hac
         >
           {isInCalendar ? "Remove from Calendar" : "Add to Calendar"}
         </Button>
+        {onRemove && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRemove}
+            className="text-muted-foreground hover:text-destructive"
+            title="Remove hackathon"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        )}
         {getWebsiteUrl() && getWebsiteUrl() !== 'N/A' && (
           <Button
             variant="ghost"

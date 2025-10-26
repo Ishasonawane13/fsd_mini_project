@@ -17,12 +17,13 @@ connectDB();
 app.use(helmet());
 
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: process.env.CLIENT_URL || ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173'],
     credentials: true
 }));
 
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs: 1 * 60 * 1000, // 1 minute window
+    max: 1000, // Allow 1000 requests per window 
     message: {
         error: 'Too many requests from this IP, please try again later.'
     },
@@ -42,6 +43,7 @@ app.use('/api/hackathons', require('./routes/hackathons'));
 app.use('/api/teams', require('./routes/teams'));
 app.use('/api/submissions', require('./routes/submissions'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/calendar', require('./routes/calendar'));
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({

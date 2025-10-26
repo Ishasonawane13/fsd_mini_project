@@ -253,6 +253,43 @@ export const hackathonsApi = {
         return apiRequest(`/hackathons/${id}`, {
             method: 'DELETE',
         });
+    },
+
+    async moveToTrash(id: string): Promise<{ status: string; message: string; data: any }> {
+        return apiRequest(`/hackathons/${id}/trash`, {
+            method: 'PUT',
+        });
+    },
+
+    async updateStatus(id: string, status: string): Promise<{ status: string; message: string; data: any }> {
+        return apiRequest(`/hackathons/${id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status }),
+        });
+    }
+};
+
+// Calendar API
+export const calendarApi = {
+    async addToCalendar(hackathonId: string): Promise<{ success: boolean; message: string; data?: any }> {
+        return apiRequest('/calendar', {
+            method: 'POST',
+            body: JSON.stringify({ hackathonId }),
+        });
+    },
+
+    async removeFromCalendar(hackathonId: string): Promise<{ success: boolean; message: string }> {
+        return apiRequest(`/calendar/${hackathonId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    async getCalendarHackathons(): Promise<{ success: boolean; data: { hackathonIds: string[]; count: number; hackathons?: Hackathon[] } }> {
+        return apiRequest('/calendar');
+    },
+
+    async isInCalendar(hackathonId: string): Promise<{ success: boolean; data: { isInCalendar: boolean } }> {
+        return apiRequest(`/calendar/${hackathonId}`);
     }
 };
 

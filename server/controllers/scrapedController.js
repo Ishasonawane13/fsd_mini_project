@@ -12,7 +12,7 @@ const {
 const getScrapedHackathons = asyncHandler(async (req, res) => {
     try {
         // Path to scraped data file
-        const dataPath = path.join(process.cwd(), '..', 'data', 'hackathons_dynamic.json');
+        const dataPath = path.join(process.cwd(), '..', 'scripts', 'data', 'hackathons_dynamic.json');
         const simplePath = path.join(process.cwd(), '..', 'data', 'hackathons_simple.json');
 
         let scrapedData = [];
@@ -100,7 +100,7 @@ const getScrapedHackathons = asyncHandler(async (req, res) => {
             lastUpdated: scrapedData.length > 0 ? scrapedData[0].scraped_at : new Date().toISOString()
         };
 
-        sendSuccessResponse(res, 'Scraped hackathons retrieved successfully', response);
+        sendSuccessResponse(res, response, 'Scraped hackathons retrieved successfully');
     } catch (error) {
         throw new ErrorHandler(`Error reading scraped data: ${error.message}`, 500);
     }
@@ -117,7 +117,7 @@ const getAllHackathons = asyncHandler(async (req, res) => {
         const dbHackathons = await Hackathon.find({}).lean();
 
         // Get scraped hackathons
-        const dataPath = path.join(process.cwd(), '..', 'data', 'hackathons_dynamic.json');
+        const dataPath = path.join(process.cwd(), '..', 'scripts', 'data', 'hackathons_dynamic.json');
         let scrapedHackathons = [];
 
         if (fs.existsSync(dataPath)) {
@@ -211,7 +211,7 @@ const getAllHackathons = asyncHandler(async (req, res) => {
             }
         };
 
-        sendSuccessResponse(res, 'All hackathons retrieved successfully', response);
+        sendSuccessResponse(res, response, 'All hackathons retrieved successfully');
     } catch (error) {
         throw new ErrorHandler(`Error retrieving all hackathons: ${error.message}`, 500);
     }

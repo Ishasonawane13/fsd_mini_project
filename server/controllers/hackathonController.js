@@ -268,6 +268,123 @@ const getHackathonStats = async (req, res) => {
     }
 };
 
+// @desc    Move hackathon to trash
+// @route   PUT /api/hackathons/:id/trash
+// @access  Private (would be protected in production)
+const moveToTrash = asyncHandler(async (req, res) => {
+    const hackathon = await Hackathon.findById(req.params.id);
+
+    if (!hackathon) {
+        throw new ErrorHandler('Hackathon not found', 404);
+    }
+
+    // Move to trash collection (in a real app, you'd have a separate collection)
+    // For now, we'll mark as trashed and set auto-delete date
+    hackathon.status = 'trashed';
+    hackathon.trashedAt = new Date();
+    hackathon.autoDeleteAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await hackathon.save();
+
+    sendSuccessResponse(res, 'Hackathon moved to trash successfully', {
+        hackathon: {
+            id: hackathon._id,
+            title: hackathon.title,
+            trashedAt: hackathon.trashedAt,
+            autoDeleteAt: hackathon.autoDeleteAt
+        }
+    });
+});
+
+// @desc    Update hackathon status based on dates
+// @route   PUT /api/hackathons/:id/status
+// @access  Private
+const updateHackathonStatus = asyncHandler(async (req, res) => {
+    const hackathon = await Hackathon.findById(req.params.id);
+
+    if (!hackathon) {
+        throw new ErrorHandler('Hackathon not found', 404);
+    }
+
+    const now = new Date();
+
+    // Determine correct status based on dates
+    let newStatus;
+    if (now > hackathon.registrationDeadline) {
+        newStatus = 'registration_closed';
+    } else if (now >= hackathon.startDate && now <= hackathon.endDate) {
+        newStatus = 'ongoing';
+    } else if (now < hackathon.startDate) {
+        newStatus = 'upcoming';
+    } else {
+        newStatus = 'completed';
+    }
+
+    // Update status if changed
+    if (hackathon.status !== newStatus) {
+        hackathon.status = newStatus;
+        hackathon.updatedAt = now;
+        await hackathon.save();
+
+        sendSuccessResponse(res, 'Hackathon status updated successfully', {
+            hackathon: {
+                id: hackathon._id,
+                title: hackathon.title,
+                oldStatus: req.body.oldStatus || 'unknown',
+                newStatus: newStatus,
+                updatedAt: hackathon.updatedAt
+            }
+        });
+    } else {
+        sendSuccessResponse(res, 'Hackathon status is already up to date', {
+            hackathon: {
+                id: hackathon._id,
+                title: hackathon.title,
+                status: hackathon.status
+            }
+        });
+    }
+});
+
+// @desc    Clean up old trashed hackathons
+// @route   DELETE /api/hackathons/cleanup-trash
+// @access  Private
+const cleanupTrash = asyncHandler(async (req, res) => {
+    const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+
+    const result = await Hackathon.deleteMany({
+        status: 'trashed',
+        trashedAt: { $lt: cutoffDate }
+    });
+
+    sendSuccessResponse(res, 'Trash cleanup completed', {
+        deletedCount: result.deletedCount,
+        cutoffDate: cutoffDate
+    });
+});
+
+// @desc    Get trashed hackathons
+// @route   GET /api/hackathons/trashed
+// @access  Private
+const getTrashedHackathons = asyncHandler(async (req, res) => {
+    const {
+        page = 1,
+        limit = 10
+    } = req.query;
+
+    const options = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        sort: { trashedAt: -1 }
+    };
+
+    const filter = { status: 'trashed' };
+
+    const result = await findWithPagination(Hackathon, filter, options);
+
+    sendPaginatedResponse(res, 'Trashed hackathons retrieved successfully', result);
+});
+
 module.exports = {
     getHackathons,
     getHackathon,
@@ -277,5 +394,9 @@ module.exports = {
     getFeaturedHackathons,
     getUpcomingHackathons,
     searchHackathons,
-    getHackathonStats
+    getHackathonStats,
+    moveToTrash,
+    updateHackathonStatus,
+    cleanupTrash,
+    getTrashedHackathons
 };

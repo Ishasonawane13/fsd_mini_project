@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X } from "lucide-react";
+import { X, Search, Keyboard } from "lucide-react";
 
 interface FilterState {
   search: string;
@@ -33,17 +33,38 @@ export const HackathonFilters = ({ filters, onFiltersChange }: HackathonFiltersP
 
   const hasActiveFilters = filters.search || filters.status !== 'all' || filters.location !== 'all' || filters.teamSize !== 'all';
 
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.status !== 'all') count++;
+    if (filters.location !== 'all') count++;
+    if (filters.teamSize !== 'all') count++;
+    return count;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
-            placeholder="Search hackathons..."
+            placeholder="Search hackathons... (Ctrl+K)"
             value={filters.search}
             onChange={(e) => updateFilter('search', e.target.value)}
+            className="pl-10"
           />
+          {filters.search && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+              onClick={() => updateFilter('search', '')}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          )}
         </div>
-        
+
         <div className="flex gap-2 flex-wrap">
           <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
             <SelectTrigger className="w-32">
@@ -54,6 +75,8 @@ export const HackathonFilters = ({ filters, onFiltersChange }: HackathonFiltersP
               <SelectItem value="upcoming">Upcoming</SelectItem>
               <SelectItem value="ongoing">Ongoing</SelectItem>
               <SelectItem value="ended">Ended</SelectItem>
+              <SelectItem value="registration_closed">Registration Closed</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
 
@@ -95,7 +118,7 @@ export const HackathonFilters = ({ filters, onFiltersChange }: HackathonFiltersP
           {hasActiveFilters && (
             <Button variant="outline" size="sm" onClick={clearFilters}>
               <X className="w-4 h-4 mr-1" />
-              Clear
+              Clear ({getActiveFilterCount()})
             </Button>
           )}
         </div>
