@@ -122,6 +122,29 @@ async function apiRequest<T>(
 // Authentication API
 export const authApi = {
     async login(email: string, password: string): Promise<AuthResponse> {
+        // Development fallback: accept a couple of dummy accounts without backend
+        if (import.meta.env.DEV) {
+            const devAccounts: Record<string, { password: string; user: User }> = {
+                '2023.isha.sonawane@ves.ac.in': {
+                    password: '1234@5678@910',
+                    user: { id: 'dev-isha', username: 'isha', email: '2023.isha.sonawane@ves.ac.in', firstName: 'Isha', lastName: 'Sonawane', role: 'user', isActive: true }
+                },
+                '2023.amruta.sahu@ves.ac.in': {
+                    password: '1234@5678@910',
+                    user: { id: 'dev-amruta', username: 'amruta', email: '2023.amruta.sahu@ves.ac.in', firstName: 'Amruta', lastName: 'Sahu', role: 'user', isActive: true }
+                }
+            };
+
+            const acct = devAccounts[email];
+            if (acct && acct.password === password) {
+                // Set a dummy token so other code thinks we're authenticated
+                const fakeToken = 'dev-token-' + acct.user.id;
+                TokenManager.setToken(fakeToken);
+                return { status: 'success', message: 'Logged in (dev)', token: fakeToken, user: acct.user } as AuthResponse;
+            }
+            // fallthrough to real request if not matched
+        }
+
         const response = await apiRequest<AuthResponse>('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
@@ -141,6 +164,23 @@ export const authApi = {
         firstName: string;
         lastName: string;
     }): Promise<AuthResponse> {
+        // Dev fallback: create local user without backend
+        if (import.meta.env.DEV) {
+            // Simple mock response for development only
+            const fakeToken = 'dev-token-' + (userData.username || 'dev');
+            const user: User = {
+                id: 'dev-' + (userData.username || 'user'),
+                username: userData.username,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                role: 'user',
+                isActive: true
+            };
+            TokenManager.setToken(fakeToken);
+            return { status: 'success', message: 'Registered (dev)', token: fakeToken, user } as AuthResponse;
+        }
+
         const response = await apiRequest<AuthResponse>('/auth/register', {
             method: 'POST',
             body: JSON.stringify(userData),

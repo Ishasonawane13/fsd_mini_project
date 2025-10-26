@@ -5,15 +5,15 @@ import { useToast } from '@/hooks/use-toast';
 interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
-    isLoading: boolean;
-    login: (email: string, password: string) => Promise<boolean>;
+    loading: boolean; // Changed from isLoading for consistency
+    login: (email: string, password: string) => Promise<void>;
     register: (userData: {
         username: string;
         email: string;
         password: string;
         firstName: string;
         lastName: string;
-    }) => Promise<boolean>;
+    }) => Promise<void>;
     logout: () => void;
     refreshUser: () => Promise<void>;
 }
@@ -50,29 +50,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         initializeAuth();
     }, []);
 
-    const login = async (email: string, password: string): Promise<boolean> => {
+    const login = async (email: string, password: string): Promise<void> => {
         try {
             setIsLoading(true);
             const response = await authApi.login(email, password);
 
             if (response.user) {
                 setUser(response.user);
-                toast({
-                    title: "Login Successful",
-                    description: `Welcome back, ${response.user.firstName}!`,
-                });
-                return true;
+                return; // Success - no return value needed
             }
 
             throw new Error('Login failed');
         } catch (error) {
             console.error('Login error:', error);
-            toast({
-                title: "Login Failed",
-                description: error instanceof Error ? error.message : "Invalid credentials",
-                variant: "destructive",
-            });
-            return false;
+            throw error; // Re-throw to let component handle the error
         } finally {
             setIsLoading(false);
         }
@@ -84,29 +75,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password: string;
         firstName: string;
         lastName: string;
-    }): Promise<boolean> => {
+    }): Promise<void> => {
         try {
             setIsLoading(true);
             const response = await authApi.register(userData);
 
             if (response.user) {
                 setUser(response.user);
-                toast({
-                    title: "Registration Successful",
-                    description: `Welcome to Hackathon Hub, ${response.user.firstName}!`,
-                });
-                return true;
+                return; // Success - no return value needed
             }
 
             throw new Error('Registration failed');
         } catch (error) {
             console.error('Registration error:', error);
-            toast({
-                title: "Registration Failed",
-                description: error instanceof Error ? error.message : "Please try again",
-                variant: "destructive",
-            });
-            return false;
+            throw error; // Re-throw to let component handle the error
         } finally {
             setIsLoading(false);
         }
@@ -136,7 +118,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const contextValue: AuthContextType = {
         user,
         isAuthenticated,
-        isLoading,
+        loading: isLoading,
         login,
         register,
         logout,

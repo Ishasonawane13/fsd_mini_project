@@ -39,6 +39,7 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/hackathons', require('./routes/hackathons'));
 app.use('/api/teams', require('./routes/teams'));
 app.use('/api/submissions', require('./routes/submissions'));

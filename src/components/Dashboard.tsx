@@ -115,7 +115,7 @@ export const Dashboard = () => {
     sortBy: 'start_date'
   });
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
 
   // Memoized filter function for better performance
   const applyFilters = useMemo(() => {
@@ -509,9 +509,35 @@ export const Dashboard = () => {
                 Track hackathons and competitions with an advanced calendar system
               </p>
             </div>
-            <Button onClick={handleScrapeUnstop} disabled={loading} variant="outline">
-              {loading ? "Scraping..." : "Refresh from Unstop"}
-            </Button>
+            <div className="flex items-center gap-4">
+              <Button onClick={handleScrapeUnstop} disabled={loading} variant="outline">
+                {loading ? "Scraping..." : "Refresh from Unstop"}
+              </Button>
+
+              {/* User Menu */}
+              <div className="flex items-center gap-2">
+                {isAuthenticated && (
+                  <>
+                    <span className="text-sm text-muted-foreground">
+                      Welcome, {user?.firstName || user?.username || 'User'}!
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        logout();
+                        toast({
+                          title: "Logged Out",
+                          description: "You have been successfully logged out.",
+                        });
+                      }}
+                    >
+                      Logout
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
